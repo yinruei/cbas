@@ -20,4 +20,4 @@
 
 ## 資料更新
 
-資料為靜態快照。重新抓取：櫃買中心 OpenAPI 取債券清單，MOPS `t21sc03` 月報表（Big5 編碼）取各月營收，彙整後覆寫 `data/` 下兩個 JSON 即可。
+資料為靜態快照。重抓：`powershell -ExecutionPolicy Bypass -File scripts/update-data.ps1`，完成後 commit 並推送 `main` 與 `gh-pages` 兩個分支。詳見 `CLAUDE.md`。
