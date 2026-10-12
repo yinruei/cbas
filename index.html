@@ -1,0 +1,751 @@
+<meta charset="utf-8">
+<title>可轉債營收動能儀表板</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500;600&family=Noto+Sans+TC:wght@400;500;700&family=Noto+Serif+TC:wght@600;700&display=swap" rel="stylesheet">
+
+<style>
+  :root {
+    color-scheme: light;
+    --page:        #f4f6f8;
+    --surface:     #fdfdfe;
+    --surface-2:   #eef1f4;
+    --ink:         #10151a;
+    --ink-2:       #4d5660;
+    --ink-muted:   #828b95;
+    --rule:        #dfe4e9;
+    --rule-strong: #c3cbd3;
+    --accent:      #2a78d6;
+    --accent-soft: #cde2fb;
+    --accent-deep: #184f95;
+    /* 台股慣例：紅漲綠跌。色塊與文字分開取色：
+       色塊明度拉開以通過色盲辨識 (deutan ΔE 20.1)，文字另取深色確保 WCAG 對比。 */
+    --up:          #b32020;  /* 漲 — 色塊＋文字 6.57:1 */
+    --up-ink:      #b32020;
+    --up-soft:     #f7e3e3;
+    --down:        #3fbf3f;  /* 跌 — 色塊 */
+    --down-ink:    #0a7a0a;  /* 跌 — 文字 5.43:1 */
+    --down-soft:   #e2f5e2;
+    --flat:        #828b95;
+    --focus:       #2a78d6;
+    --shadow:      0 1px 2px rgba(16,21,26,.06), 0 8px 24px rgba(16,21,26,.06);
+  }
+  @media (prefers-color-scheme: dark) {
+    :root:not([data-theme="light"]) {
+      color-scheme: dark;
+      --page:        #0c0e11;
+      --surface:     #16191d;
+      --surface-2:   #1f242a;
+      --ink:         #f2f4f6;
+      --ink-2:       #b2bac3;
+      --ink-muted:   #7d868f;
+      --rule:        #272c33;
+      --rule-strong: #39404a;
+      --accent:      #4b94ea;
+      --accent-soft: #1b3a5f;
+      --accent-deep: #9ec5f4;
+      --up:          #ff9494;  /* 漲 — 色塊＋文字 */
+      --up-ink:      #ff9494;
+      --up-soft:     #3a1f20;
+      --down:        #2aa52a;  /* 跌 — 色塊 */
+      --down-ink:    #35b835;  /* 跌 — 文字 6.77:1 */
+      --down-soft:   #16301a;
+      --flat:        #7d868f;
+      --focus:       #4b94ea;
+      --shadow:      0 1px 2px rgba(0,0,0,.4), 0 8px 24px rgba(0,0,0,.35);
+    }
+  }
+  :root[data-theme="dark"] {
+    color-scheme: dark;
+    --page:        #0c0e11;
+    --surface:     #16191d;
+    --surface-2:   #1f242a;
+    --ink:         #f2f4f6;
+    --ink-2:       #b2bac3;
+    --ink-muted:   #7d868f;
+    --rule:        #272c33;
+    --rule-strong: #39404a;
+    --accent:      #4b94ea;
+    --accent-soft: #1b3a5f;
+    --accent-deep: #9ec5f4;
+    --up:          #ff9494;
+    --up-ink:      #ff9494;
+    --up-soft:     #3a1f20;
+    --down:        #2aa52a;
+    --down-ink:    #35b835;
+    --down-soft:   #16301a;
+    --flat:        #7d868f;
+    --focus:       #4b94ea;
+    --shadow:      0 1px 2px rgba(0,0,0,.4), 0 8px 24px rgba(0,0,0,.35);
+  }
+
+  * { box-sizing: border-box; }
+
+  body {
+    margin: 0;
+    background: var(--page);
+    color: var(--ink);
+    font-family: "Noto Sans TC", system-ui, -apple-system, "Segoe UI", sans-serif;
+    font-size: 15px;
+    line-height: 1.6;
+    -webkit-font-smoothing: antialiased;
+  }
+
+  .wrap { max-width: 1320px; margin: 0 auto; padding: 32px 24px 80px; }
+
+  /* ---------- masthead ---------- */
+  .masthead { display: flex; flex-wrap: wrap; align-items: flex-end; gap: 16px 28px; padding-bottom: 20px; border-bottom: 2px solid var(--ink); }
+  .masthead h1 {
+    font-family: "Noto Serif TC", Georgia, serif;
+    font-weight: 700; font-size: clamp(26px, 3.4vw, 38px);
+    letter-spacing: -.01em; margin: 0; text-wrap: balance; line-height: 1.25;
+  }
+  .masthead .sub { color: var(--ink-2); font-size: 14px; max-width: 62ch; margin: 6px 0 0; }
+  .asof { margin-left: auto; text-align: right; font-size: 12px; color: var(--ink-muted); font-family: "IBM Plex Mono", ui-monospace, monospace; line-height: 1.7; }
+  .asof b { display: block; color: var(--ink-2); font-weight: 500; }
+
+  /* ---------- summary tiles ---------- */
+  .tiles { display: grid; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); gap: 1px; background: var(--rule); border: 1px solid var(--rule); margin: 24px 0 0; border-radius: 8px; overflow: hidden; }
+  .tile { background: var(--surface); padding: 16px 18px; }
+  .tile .lab { font-size: 11px; letter-spacing: .09em; text-transform: uppercase; color: var(--ink-muted); font-weight: 500; }
+  .tile .val { font-size: 27px; font-weight: 600; font-family: "IBM Plex Mono", ui-monospace, monospace; letter-spacing: -.02em; margin-top: 2px; }
+  .tile .note { font-size: 12px; color: var(--ink-2); }
+
+  /* ---------- controls ---------- */
+  .controls { display: flex; flex-wrap: wrap; gap: 10px; align-items: center; margin: 24px 0 14px; }
+  .field { position: relative; display: flex; align-items: center; }
+  input[type="search"], select {
+    font: inherit; font-size: 14px; color: var(--ink);
+    background: var(--surface); border: 1px solid var(--rule-strong);
+    border-radius: 7px; padding: 9px 12px; min-height: 40px;
+  }
+  input[type="search"] { width: 250px; }
+  select { cursor: pointer; padding-right: 30px; appearance: none;
+    background-image: linear-gradient(45deg, transparent 50%, currentColor 50%), linear-gradient(135deg, currentColor 50%, transparent 50%);
+    background-position: calc(100% - 16px) 54%, calc(100% - 11px) 54%;
+    background-size: 5px 5px, 5px 5px; background-repeat: no-repeat; }
+  input:focus-visible, select:focus-visible, button:focus-visible, tr:focus-visible {
+    outline: 2px solid var(--focus); outline-offset: 2px;
+  }
+  .seg { display: flex; border: 1px solid var(--rule-strong); border-radius: 7px; overflow: hidden; }
+  .seg button {
+    font: inherit; font-size: 13px; padding: 9px 14px; min-height: 40px;
+    background: var(--surface); color: var(--ink-2); border: 0;
+    border-right: 1px solid var(--rule-strong); cursor: pointer;
+  }
+  .seg button:last-child { border-right: 0; }
+  .seg button[aria-pressed="true"] { background: var(--ink); color: var(--surface); font-weight: 500; }
+  .count { margin-left: auto; font-size: 13px; color: var(--ink-2); font-family: "IBM Plex Mono", ui-monospace, monospace; }
+
+  /* ---------- table ---------- */
+  .tablewrap { overflow-x: auto; background: var(--surface); border: 1px solid var(--rule); border-radius: 8px; box-shadow: var(--shadow); }
+  table { width: 100%; border-collapse: collapse; min-width: 1040px; }
+  thead th {
+    position: sticky; top: 0; z-index: 2; background: var(--surface);
+    text-align: left; font-size: 11px; letter-spacing: .07em; text-transform: uppercase;
+    color: var(--ink-muted); font-weight: 600; padding: 12px 14px; white-space: nowrap;
+    border-bottom: 1px solid var(--rule-strong);
+  }
+  thead th.sortable { cursor: pointer; user-select: none; }
+  thead th.sortable:hover { color: var(--ink); }
+  thead th .arrow { opacity: .35; margin-left: 3px; }
+  thead th[aria-sort] .arrow { opacity: 1; color: var(--accent); }
+  tbody td { padding: 11px 14px; border-bottom: 1px solid var(--rule); vertical-align: middle; }
+  tbody tr { cursor: pointer; }
+  tbody tr:hover { background: var(--surface-2); }
+  tbody tr:last-child td { border-bottom: 0; }
+  .num { font-family: "IBM Plex Mono", ui-monospace, monospace; font-variant-numeric: tabular-nums; text-align: right; white-space: nowrap; }
+  .code { font-family: "IBM Plex Mono", ui-monospace, monospace; font-weight: 500; color: var(--accent); }
+  .bondname { font-weight: 500; }
+  .stockline { font-size: 12px; color: var(--ink-muted); }
+  .dash { color: var(--ink-muted); }
+
+  .chip { display: inline-flex; align-items: center; gap: 4px; font-size: 12px; font-weight: 500; padding: 3px 9px; border-radius: 999px; white-space: nowrap; border: 1px solid transparent; }
+  .chip-up   { background: var(--up-soft);   color: var(--up-ink);   border-color: color-mix(in srgb, var(--up) 30%, transparent); }
+  .chip-down { background: var(--down-soft); color: var(--down-ink); border-color: color-mix(in srgb, var(--down-ink) 30%, transparent); }
+  .chip-flat { background: var(--surface-2); color: var(--ink-2); border-color: var(--rule-strong); }
+  .chip-soon { background: var(--accent-soft); color: var(--accent-deep); border-color: color-mix(in srgb, var(--accent) 35%, transparent); }
+  .chip-guar { background: var(--surface-2); color: var(--ink-2); border-color: var(--rule-strong); }
+
+  .val-up   { color: var(--up-ink);   font-weight: 600; }
+  .val-down { color: var(--down-ink); font-weight: 600; }
+  .val-flat { color: var(--ink-muted); }
+
+  .streak { display: flex; align-items: center; gap: 7px; }
+  .pips { display: inline-flex; gap: 2px; }
+  .pip { width: 4px; height: 13px; border-radius: 1px; background: var(--rule-strong); }
+  .pip.on-up { background: var(--up); }
+  .pip.on-down { background: var(--down); }
+
+  /* ---------- detail panel ---------- */
+  .scrim { position: fixed; inset: 0; background: rgba(8,11,14,.55); display: none; z-index: 40; }
+  .scrim.open { display: block; }
+  .panel {
+    position: fixed; top: 0; right: 0; bottom: 0; width: min(560px, 100%);
+    background: var(--surface); border-left: 1px solid var(--rule);
+    z-index: 50; overflow-y: auto; transform: translateX(100%);
+    transition: transform .22s ease;
+  }
+  .panel.open { transform: translateX(0); }
+  @media (prefers-reduced-motion: reduce) { .panel { transition: none; } }
+  .panel-in { padding: 26px 28px 56px; }
+  .panel-head { display: flex; align-items: flex-start; gap: 14px; padding-bottom: 16px; border-bottom: 1px solid var(--rule); }
+  .panel-head h2 { font-family: "Noto Serif TC", Georgia, serif; font-size: 23px; margin: 0; line-height: 1.3; }
+  .panel-head .meta { font-size: 13px; color: var(--ink-2); margin-top: 3px; font-family: "IBM Plex Mono", ui-monospace, monospace; }
+  .closebtn { margin-left: auto; background: var(--surface-2); border: 1px solid var(--rule-strong); color: var(--ink-2); border-radius: 7px; width: 34px; height: 34px; font-size: 17px; line-height: 1; cursor: pointer; flex: none; }
+  .closebtn:hover { color: var(--ink); }
+
+  .sect { margin-top: 26px; }
+  .sect > h3 { font-size: 11px; letter-spacing: .09em; text-transform: uppercase; color: var(--ink-muted); font-weight: 600; margin: 0 0 12px; }
+  .kv { display: grid; grid-template-columns: repeat(2, 1fr); gap: 1px; background: var(--rule); border: 1px solid var(--rule); border-radius: 7px; overflow: hidden; }
+  .kv > div { background: var(--surface); padding: 11px 13px; }
+  .kv dt { font-size: 11px; color: var(--ink-muted); margin: 0; }
+  .kv dd { margin: 1px 0 0; font-size: 15px; font-family: "IBM Plex Mono", ui-monospace, monospace; font-variant-numeric: tabular-nums; }
+
+  figure { margin: 0; }
+  figcaption { font-size: 12px; color: var(--ink-muted); margin-top: 8px; line-height: 1.5; }
+  .legend { display: flex; flex-wrap: wrap; gap: 14px; font-size: 12px; color: var(--ink-2); margin-bottom: 10px; }
+  .legend span { display: inline-flex; align-items: center; gap: 5px; }
+  .swatch { width: 11px; height: 11px; border-radius: 2px; flex: none; }
+
+  .empty { padding: 56px 20px; text-align: center; color: var(--ink-muted); }
+  .banner { border: 1px solid var(--rule-strong); background: var(--surface-2); border-radius: 8px; padding: 13px 16px; font-size: 13px; color: var(--ink-2); margin: 18px 0 0; }
+  .banner b { color: var(--ink); font-weight: 600; }
+
+  footer { margin-top: 36px; padding-top: 18px; border-top: 1px solid var(--rule); font-size: 12px; color: var(--ink-muted); line-height: 1.8; }
+  footer a { color: var(--accent); }
+
+  @media (max-width: 720px) {
+    .wrap { padding: 22px 14px 60px; }
+    .asof { margin-left: 0; text-align: left; }
+    input[type="search"] { width: 100%; }
+    .field { width: 100%; }
+    .kv { grid-template-columns: 1fr; }
+    .panel-in { padding: 20px 18px 48px; }
+  }
+</style>
+
+<div class="wrap">
+  <header class="masthead">
+    <div>
+      <h1>可轉債營收動能儀表板</h1>
+      <p class="sub">櫃買中心已掛牌轉（交）換公司債，對照標的個股近 12 個月營收趨勢。成長判讀以滾動年增與連續成長月數為準，不看單月跳動。</p>
+    </div>
+    <div class="asof">
+      <b>可轉債</b>櫃買中心 ISSBD5
+      <b>營收</b>公開資訊觀測站
+      <b id="asofLine">—</b>
+    </div>
+  </header>
+
+  <section class="tiles" id="tiles" aria-label="總覽"></section>
+
+  <div id="dataNote"></div>
+
+  <div class="controls">
+    <div class="field">
+      <input type="search" id="q" placeholder="搜尋代號、公司或債券名稱" aria-label="搜尋代號、公司或債券名稱">
+    </div>
+    <select id="fGuar" aria-label="擔保類型">
+      <option value="">擔保類型：全部</option>
+      <option value="無擔保">無擔保</option>
+      <option value="有擔保">有擔保</option>
+    </select>
+    <select id="fGrade" aria-label="營收動能">
+      <option value="">營收動能：全部</option>
+      <option value="strong">強勁持續</option>
+      <option value="steady">穩定成長</option>
+      <option value="growing">成長中</option>
+      <option value="fading">動能轉弱</option>
+      <option value="declining">衰退</option>
+      <option value="nodata">無營收資料</option>
+    </select>
+    <div class="seg" role="group" aria-label="掛牌狀態">
+      <button type="button" data-status="" aria-pressed="true">全部</button>
+      <button type="button" data-status="soon" aria-pressed="false">即將掛牌</button>
+      <button type="button" data-status="live" aria-pressed="false">已掛牌</button>
+    </div>
+    <span class="count" id="count"></span>
+  </div>
+
+  <div class="tablewrap">
+    <table>
+      <thead>
+        <tr>
+          <th class="sortable" data-sort="bond">債券 / 標的<span class="arrow">↕</span></th>
+          <th class="sortable" data-sort="listingDate">掛牌日<span class="arrow">↕</span></th>
+          <th>擔保</th>
+          <th class="num sortable" data-sort="issueAmt">發行額<span class="arrow">↕</span></th>
+          <th>近 12 月營收走勢</th>
+          <th class="num sortable" data-sort="ttmYoY">滾動年增<span class="arrow">↕</span></th>
+          <th class="sortable" data-sort="streak">連續成長<span class="arrow">↕</span></th>
+          <th>動能</th>
+        </tr>
+      </thead>
+      <tbody id="rows"></tbody>
+    </table>
+  </div>
+
+  <footer>
+    <p><b>資料來源</b>：可轉債清單取自櫃買中心 OpenAPI <code>bond_ISSBD5_data</code>（僅公開發行，已排除私募）；月營收取自公開資訊觀測站 <code>t21sc03</code> 月報表。</p>
+    <p><b>讀法</b>：紅＝成長、綠＝衰退（台股慣例），顏色一律搭配 ▲▼ 與正負號。「滾動年增」為近 12 個月營收合計相對去年同期合計的增減，用意是壓掉單月與單季的雜訊；「連續成長」為最近一段期間年增率連續為正的月數。</p>
+  </footer>
+</div>
+
+<div class="scrim" id="scrim"></div>
+<aside class="panel" id="panel" role="dialog" aria-modal="true" aria-labelledby="panelTitle" tabindex="-1">
+  <div class="panel-in" id="panelIn"></div>
+</aside>
+
+<script>
+(function () {
+  "use strict";
+
+  var TODAY = "2026-10-12";
+  var bonds = [], revenue = {}, rowsData = [], view = [];
+  var sortKey = "listingDate", sortDir = -1;
+  var filters = { q: "", guar: "", grade: "", status: "" };
+
+  var GRADES = {
+    strong:    { label: "強勁持續", tone: "up",   icon: "▲" },
+    steady:    { label: "穩定成長", tone: "up",   icon: "▲" },
+    growing:   { label: "成長中",   tone: "up",   icon: "▲" },
+    fading:    { label: "動能轉弱", tone: "flat", icon: "■" },
+    declining: { label: "衰退",     tone: "down", icon: "▼" },
+    nodata:    { label: "無資料",   tone: "flat", icon: "–" }
+  };
+
+  // ---------- helpers ----------
+  function esc(s) {
+    return String(s == null ? "" : s).replace(/[&<>"']/g, function (c) {
+      return { "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c];
+    });
+  }
+  function fmtPct(v, digits) {
+    if (v == null || !isFinite(v)) return "—";
+    var d = digits == null ? 1 : digits;
+    return (v > 0 ? "+" : v < 0 ? "−" : "") + Math.abs(v).toFixed(d) + "%";
+  }
+  function toneClass(v) { return v == null || !isFinite(v) ? "val-flat" : v > 0 ? "val-up" : v < 0 ? "val-down" : "val-flat"; }
+  function fmtAmt(n) { // 元 -> 億元
+    if (!n) return "—";
+    var y = n / 1e8;
+    return y >= 10 ? y.toFixed(0) : y.toFixed(1);
+  }
+  function fmtRevK(k) { // 千元 -> 億元
+    if (k == null) return "—";
+    var y = k / 1e5;
+    return (Math.abs(y) >= 100 ? y.toFixed(0) : y.toFixed(2));
+  }
+  function ymLabel(ym) { // "11509" -> "115/09"
+    return ym.slice(0, 3) + "/" + ym.slice(3);
+  }
+  function ymAD(ym) {
+    return (parseInt(ym.slice(0, 3), 10) + 1911) + "/" + ym.slice(3);
+  }
+
+  // ---------- growth metrics ----------
+  function analyse(code) {
+    var rec = revenue[code];
+    if (!rec || !rec.series || rec.series.length < 2) return { grade: "nodata", series: [], yoy: [] };
+
+    var s = rec.series.slice().sort(function (a, b) { return a.ym < b.ym ? -1 : 1; });
+
+    var yoy = s.map(function (p) {
+      if (p.revLY == null || p.revLY === 0 || p.rev == null) return { ym: p.ym, v: null };
+      return { ym: p.ym, v: (p.rev - p.revLY) / Math.abs(p.revLY) * 100 };
+    });
+
+    var known = yoy.filter(function (p) { return p.v != null; });
+
+    // 滾動 12 月年增：近 12 月合計 vs 去年同期合計
+    var ttm = null, sumNow = 0, sumLY = 0, nPair = 0;
+    s.forEach(function (p) {
+      if (p.rev != null && p.revLY != null) { sumNow += p.rev; sumLY += p.revLY; nPair++; }
+    });
+    if (nPair >= 6 && sumLY > 0) ttm = (sumNow - sumLY) / sumLY * 100;
+
+    // 連續成長：由最新往回數
+    var streak = 0, streakDir = 0;
+    for (var i = yoy.length - 1; i >= 0; i--) {
+      var v = yoy[i].v;
+      if (v == null) break;
+      if (streakDir === 0) { streakDir = v > 0 ? 1 : v < 0 ? -1 : 0; if (streakDir === 0) break; streak = 1; }
+      else if ((v > 0 ? 1 : v < 0 ? -1 : 0) === streakDir) streak++;
+      else break;
+    }
+
+    var posCount = known.filter(function (p) { return p.v > 0; }).length;
+
+    // 動能：近 3 月年增均值 vs 全期年增均值
+    var last3 = known.slice(-3), mom3 = null, avgAll = null, momentum = null;
+    if (last3.length) {
+      mom3 = last3.reduce(function (a, p) { return a + p.v; }, 0) / last3.length;
+      avgAll = known.reduce(function (a, p) { return a + p.v; }, 0) / known.length;
+      momentum = mom3 - avgAll;
+    }
+
+    var grade = "nodata";
+    if (known.length >= 4) {
+      var growing = ttm != null ? ttm > 0 : (mom3 != null && mom3 > 0);
+      if (growing && streakDir === 1 && streak >= 6) grade = "strong";
+      else if (growing && posCount >= Math.ceil(known.length * 0.65)) grade = "steady";
+      else if (growing) grade = "growing";
+      else if (streakDir === -1 && streak >= 3) grade = "declining";
+      else grade = "fading";
+    }
+
+    return {
+      grade: grade, series: s, yoy: yoy, ttm: ttm,
+      streak: streak, streakDir: streakDir,
+      posCount: posCount, known: known.length,
+      mom3: mom3, avgAll: avgAll, momentum: momentum,
+      latest: s[s.length - 1], name: rec.name, industry: rec.industry || "", market: rec.market
+    };
+  }
+
+  // ---------- sparkline ----------
+  function sparkline(series, w, h) {
+    var pts = series.filter(function (p) { return p.rev != null; });
+    if (pts.length < 2) return '<span class="dash">—</span>';
+    var vals = pts.map(function (p) { return p.rev; });
+    var min = Math.min.apply(null, vals), max = Math.max.apply(null, vals);
+    var pad = 3, span = (max - min) || 1;
+    var X = function (i) { return pad + i * (w - pad * 2) / (pts.length - 1); };
+    var Y = function (v) { return h - pad - (v - min) / span * (h - pad * 2); };
+
+    var line = pts.map(function (p, i) { return (i ? "L" : "M") + X(i).toFixed(1) + " " + Y(p.rev).toFixed(1); }).join(" ");
+    var area = line + " L" + X(pts.length - 1).toFixed(1) + " " + (h - pad) + " L" + X(0).toFixed(1) + " " + (h - pad) + " Z";
+    var lx = X(pts.length - 1).toFixed(1), ly = Y(pts[pts.length - 1].rev).toFixed(1);
+
+    return '<svg width="' + w + '" height="' + h + '" viewBox="0 0 ' + w + ' ' + h + '" aria-hidden="true" style="display:block">' +
+      '<path d="' + area + '" fill="var(--accent)" opacity=".13"></path>' +
+      '<path d="' + line + '" fill="none" stroke="var(--accent)" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"></path>' +
+      '<circle cx="' + lx + '" cy="' + ly + '" r="3" fill="var(--accent)" stroke="var(--surface)" stroke-width="2"></circle>' +
+      '</svg>';
+  }
+
+  function streakPips(a) {
+    if (a.grade === "nodata" || !a.streak) return '<span class="dash">—</span>';
+    var cls = a.streakDir === 1 ? "on-up" : "on-down";
+    var n = Math.min(a.streak, 12), pips = "";
+    for (var i = 0; i < 12; i++) pips += '<span class="pip' + (i < n ? " " + cls : "") + '"></span>';
+    var word = a.streakDir === 1 ? "連增" : "連減";
+    return '<span class="streak"><span class="pips" aria-hidden="true">' + pips + '</span>' +
+      '<span class="' + (a.streakDir === 1 ? "val-up" : "val-down") + '">' + word + ' ' + a.streak + ' 月</span></span>';
+  }
+
+  // ---------- build rows ----------
+  function build() {
+    rowsData = bonds.map(function (b) {
+      var a = analyse(b.stockCode);
+      return {
+        b: b, a: a,
+        soon: b.listingDate > TODAY,
+        ttmYoY: a.ttm == null ? -Infinity : a.ttm,
+        streakSort: a.grade === "nodata" ? -Infinity : (a.streakDir === 1 ? a.streak : -a.streak)
+      };
+    });
+  }
+
+  function applyFilters() {
+    var q = filters.q.trim().toLowerCase();
+    view = rowsData.filter(function (r) {
+      if (filters.guar && r.b.guaranteed !== filters.guar) return false;
+      if (filters.grade && r.a.grade !== filters.grade) return false;
+      if (filters.status === "soon" && !r.soon) return false;
+      if (filters.status === "live" && r.soon) return false;
+      if (q) {
+        var hay = (r.b.stockCode + " " + r.b.issuer + " " + r.b.bondName + " " + r.b.bondCode + " " + (r.a.industry || "")).toLowerCase();
+        if (hay.indexOf(q) === -1) return false;
+      }
+      return true;
+    });
+
+    view.sort(function (x, y) {
+      var av, bv;
+      if (sortKey === "bond") { av = x.b.issuer; bv = y.b.issuer; return av < bv ? -sortDir : av > bv ? sortDir : 0; }
+      if (sortKey === "listingDate") { av = x.b.listingDate; bv = y.b.listingDate; return av < bv ? -sortDir : av > bv ? sortDir : 0; }
+      if (sortKey === "issueAmt") { av = x.b.issueAmt; bv = y.b.issueAmt; }
+      else if (sortKey === "ttmYoY") { av = x.ttmYoY; bv = y.ttmYoY; }
+      else { av = x.streakSort; bv = y.streakSort; }
+      return (av - bv) * sortDir;
+    });
+
+    render();
+  }
+
+  function render() {
+    var tb = document.getElementById("rows");
+    if (!view.length) {
+      tb.innerHTML = '<tr><td colspan="8"><div class="empty">沒有符合條件的可轉債。調整搜尋或篩選條件再試。</div></td></tr>';
+    } else {
+      tb.innerHTML = view.map(function (r, i) {
+        var b = r.b, a = r.a, g = GRADES[a.grade];
+        var mom = a.momentum;
+        // 「轉強／轉弱」是相對自身近 12 月均值，成長與衰退兩種情境都講得通；
+        // 用「加速」會讓衰退趨緩被誤讀成加速成長。
+        var momTxt = a.grade === "nodata" || mom == null ? '<span class="dash">—</span>'
+          : '<span class="chip ' + (mom > 1 ? "chip-up" : mom < -1 ? "chip-down" : "chip-flat") + '" title="近 3 月年增均值相對近 12 月年增均值">' +
+            (mom > 1 ? "▲ 轉強" : mom < -1 ? "▼ 轉弱" : "■ 持平") + '</span>';
+
+        return '<tr tabindex="0" data-i="' + i + '">' +
+          '<td><div class="bondname">' + esc(b.bondName) + ' ' +
+            (r.soon ? '<span class="chip chip-soon">即將掛牌</span>' : '') + '</div>' +
+            '<div class="stockline"><span class="code">' + esc(b.stockCode) + '</span> ' + esc(b.issuer) +
+            (a.industry ? ' · ' + esc(a.industry) : '') + '</div></td>' +
+          '<td class="num">' + esc(b.listingDate) + '</td>' +
+          '<td><span class="chip chip-guar">' + esc(b.guaranteed) + '</span></td>' +
+          '<td class="num">' + fmtAmt(b.issueAmt) + ' 億</td>' +
+          '<td>' + sparkline(a.series, 132, 34) + '</td>' +
+          '<td class="num ' + toneClass(a.ttm) + '">' + fmtPct(a.ttm) + '</td>' +
+          '<td>' + streakPips(a) + '</td>' +
+          '<td>' + momTxt + '</td>' +
+          '</tr>';
+      }).join("");
+    }
+    document.getElementById("count").textContent = view.length + " / " + rowsData.length + " 檔";
+    updateSortIndicators();
+  }
+
+  function updateSortIndicators() {
+    document.querySelectorAll("thead th.sortable").forEach(function (th) {
+      if (th.dataset.sort === sortKey) {
+        th.setAttribute("aria-sort", sortDir === 1 ? "ascending" : "descending");
+        th.querySelector(".arrow").textContent = sortDir === 1 ? "↑" : "↓";
+      } else {
+        th.removeAttribute("aria-sort");
+        th.querySelector(".arrow").textContent = "↕";
+      }
+    });
+  }
+
+  // ---------- tiles ----------
+  function renderTiles() {
+    var uniq = {}; bonds.forEach(function (b) { uniq[b.stockCode] = 1; });
+    var soon = rowsData.filter(function (r) { return r.soon; }).length;
+    var strong = rowsData.filter(function (r) { return r.a.grade === "strong" || r.a.grade === "steady"; }).length;
+    var covered = rowsData.filter(function (r) { return r.a.grade !== "nodata"; }).length;
+
+    var tiles = [
+      { lab: "可轉債", val: bonds.length, note: "公開發行，已排除私募" },
+      { lab: "標的個股", val: Object.keys(uniq).length, note: covered + " 檔有營收資料" },
+      { lab: "即將掛牌", val: soon, note: "掛牌日晚於 " + TODAY },
+      { lab: "持續成長", val: strong, note: "強勁持續＋穩定成長" }
+    ];
+    document.getElementById("tiles").innerHTML = tiles.map(function (t) {
+      return '<div class="tile"><div class="lab">' + t.lab + '</div><div class="val">' + t.val + '</div><div class="note">' + esc(t.note) + '</div></div>';
+    }).join("");
+  }
+
+  // ---------- detail charts ----------
+  function revChart(s, w, h) {
+    var pts = s.filter(function (p) { return p.rev != null; });
+    if (pts.length < 2) return "";
+    var vals = pts.map(function (p) { return p.rev; });
+    var min = Math.min.apply(null, vals), max = Math.max.apply(null, vals);
+    var lo = min - (max - min) * .15, span = (max - lo) || 1;
+    var L = 8, R = 8, T = 10, B = 22;
+    var X = function (i) { return L + i * (w - L - R) / (pts.length - 1); };
+    var Y = function (v) { return T + (1 - (v - lo) / span) * (h - T - B); };
+
+    var line = pts.map(function (p, i) { return (i ? "L" : "M") + X(i).toFixed(1) + " " + Y(p.rev).toFixed(1); }).join(" ");
+    var area = line + " L" + X(pts.length - 1).toFixed(1) + " " + (h - B) + " L" + X(0).toFixed(1) + " " + (h - B) + " Z";
+
+    var dots = pts.map(function (p, i) {
+      return '<circle cx="' + X(i).toFixed(1) + '" cy="' + Y(p.rev).toFixed(1) + '" r="9" fill="transparent">' +
+        '<title>' + ymAD(p.ym) + '　營收 ' + fmtRevK(p.rev) + ' 億元</title></circle>';
+    }).join("");
+
+    var ticks = pts.map(function (p, i) {
+      if (i !== 0 && i !== pts.length - 1 && i !== Math.floor(pts.length / 2)) return "";
+      return '<text x="' + X(i).toFixed(1) + '" y="' + (h - 6) + '" font-size="10" fill="var(--ink-muted)" text-anchor="' +
+        (i === 0 ? "start" : i === pts.length - 1 ? "end" : "middle") + '">' + ymLabel(p.ym) + '</text>';
+    }).join("");
+
+    return '<svg width="100%" viewBox="0 0 ' + w + ' ' + h + '" role="img" aria-label="近 12 個月營收走勢">' +
+      '<line x1="' + L + '" y1="' + (h - B) + '" x2="' + (w - R) + '" y2="' + (h - B) + '" stroke="var(--rule-strong)" stroke-width="1"></line>' +
+      '<path d="' + area + '" fill="var(--accent)" opacity=".13"></path>' +
+      '<path d="' + line + '" fill="none" stroke="var(--accent)" stroke-width="2" stroke-linejoin="round" stroke-linecap="round"></path>' +
+      '<circle cx="' + X(pts.length - 1).toFixed(1) + '" cy="' + Y(pts[pts.length - 1].rev).toFixed(1) + '" r="3.5" fill="var(--accent)" stroke="var(--surface)" stroke-width="2"></circle>' +
+      dots + ticks + '</svg>';
+  }
+
+  function yoyChart(yoy, w, h) {
+    var pts = yoy.filter(function (p) { return p.v != null; });
+    if (!pts.length) return "";
+    var vals = pts.map(function (p) { return p.v; });
+    var mx = Math.max.apply(null, vals.map(Math.abs).concat([5]));
+    var L = 8, R = 8, T = 12, B = 22;
+    var zero = T + (h - T - B) / 2;
+    var half = (h - T - B) / 2;
+    var bw = Math.min(22, (w - L - R) / pts.length - 4);
+
+    var bars = pts.map(function (p, i) {
+      var cx = L + (i + .5) * (w - L - R) / pts.length;
+      var hgt = Math.max(1.5, Math.abs(p.v) / mx * half * .92);
+      var up = p.v > 0;
+      var y = up ? zero - hgt : zero;
+      return '<rect x="' + (cx - bw / 2).toFixed(1) + '" y="' + y.toFixed(1) + '" width="' + bw.toFixed(1) +
+        '" height="' + hgt.toFixed(1) + '" rx="2.5" fill="' + (up ? "var(--up)" : "var(--down)") + '">' +
+        '<title>' + ymAD(p.ym) + '　年增率 ' + fmtPct(p.v) + '</title></rect>';
+    }).join("");
+
+    var ticks = pts.map(function (p, i) {
+      if (i !== 0 && i !== pts.length - 1) return "";
+      var cx = L + (i + .5) * (w - L - R) / pts.length;
+      return '<text x="' + cx.toFixed(1) + '" y="' + (h - 5) + '" font-size="10" fill="var(--ink-muted)" text-anchor="' +
+        (i === 0 ? "start" : "end") + '">' + ymLabel(p.ym) + '</text>';
+    }).join("");
+
+    return '<svg width="100%" viewBox="0 0 ' + w + ' ' + h + '" role="img" aria-label="近 12 個月營收年增率">' +
+      bars +
+      '<line x1="' + L + '" y1="' + zero + '" x2="' + (w - R) + '" y2="' + zero + '" stroke="var(--rule-strong)" stroke-width="1"></line>' +
+      ticks + '</svg>';
+  }
+
+  // ---------- detail panel ----------
+  var lastFocus = null;
+  function openPanel(i) {
+    var r = view[i]; if (!r) return;
+    var b = r.b, a = r.a, g = GRADES[a.grade];
+    lastFocus = document.activeElement;
+
+    var metrics = a.grade === "nodata"
+      ? '<div class="banner">找不到 <b>' + esc(b.stockCode) + '</b> 的月營收資料。可能是金融、控股或外國企業，未列入公開資訊觀測站的月營收月報表。</div>'
+      : '<div class="sect"><h3>成長判讀</h3><dl class="kv">' +
+          '<div><dt>綜合評級</dt><dd><span class="chip chip-' + g.tone + '">' + g.icon + ' ' + g.label + '</span></dd></div>' +
+          '<div><dt>滾動 12 月年增</dt><dd class="' + toneClass(a.ttm) + '">' + fmtPct(a.ttm) + '</dd></div>' +
+          '<div><dt>連續' + (a.streakDir === 1 ? "成長" : "衰退") + '</dt><dd class="' + (a.streakDir === 1 ? "val-up" : a.streakDir === -1 ? "val-down" : "val-flat") + '">' + (a.streak || "—") + ' 個月</dd></div>' +
+          '<div><dt>近 ' + a.known + ' 月正成長</dt><dd>' + a.posCount + ' 次</dd></div>' +
+          '<div><dt>近 3 月年增均值</dt><dd class="' + toneClass(a.mom3) + '">' + fmtPct(a.mom3) + '</dd></div>' +
+          '<div><dt>動能：近3月 − 近12月均值</dt><dd class="' + toneClass(a.momentum) + '">' + fmtPct(a.momentum) +
+            (a.momentum == null ? "" : ' <span style="font-size:12px;color:var(--ink-muted)">' + (a.momentum > 1 ? "轉強" : a.momentum < -1 ? "轉弱" : "持平") + '</span>') + '</dd></div>' +
+        '</dl></div>' +
+        '<div class="sect"><h3>月營收（億元）</h3><figure>' + revChart(a.series, 500, 150) +
+          '<figcaption>最新 ' + (a.latest ? ymAD(a.latest.ym) : "—") + ' 月營收 ' + (a.latest ? fmtRevK(a.latest.rev) : "—") + ' 億元。</figcaption></figure></div>' +
+        '<div class="sect"><h3>月營收年增率</h3>' +
+          '<div class="legend"><span><i class="swatch" style="background:var(--up)"></i>▲ 年增為正</span><span><i class="swatch" style="background:var(--down)"></i>▼ 年增為負</span></div>' +
+          '<figure>' + yoyChart(a.yoy, 500, 140) +
+          '<figcaption>每根柱子是該月相對去年同月的增減。看的是紅柱是否連成一片，而不是單一月份的高低。</figcaption></figure></div>';
+
+    // 來源資料一致性檢查：不修改原值，只標示出來
+    var anomalies = [];
+    if (b.convStart && b.issueDate && b.convStart < b.issueDate)
+      anomalies.push("轉換期起日 " + b.convStart + " 早於發行日 " + b.issueDate + "，櫃買中心原始資料疑似誤植年份。同期其他可轉債的轉換期多自發行日後三個月起算。");
+    if (b.convEnd && b.maturity && b.convEnd > b.maturity)
+      anomalies.push("轉換期迄日 " + b.convEnd + " 晚於到期日 " + b.maturity + "。");
+
+    document.getElementById("panelIn").innerHTML =
+      '<div class="panel-head"><div>' +
+        '<h2 id="panelTitle">' + esc(b.bondName) + '</h2>' +
+        '<div class="meta">' + esc(b.bondCode) + '　·　' + esc(b.stockCode) + ' ' + esc(b.issuer) + '</div>' +
+      '</div><button class="closebtn" id="closeBtn" aria-label="關閉">✕</button></div>' +
+      metrics +
+      '<div class="sect"><h3>債券條件</h3><dl class="kv">' +
+        '<div><dt>發行日</dt><dd>' + esc(b.issueDate) + '</dd></div>' +
+        '<div><dt>掛牌日</dt><dd>' + esc(b.listingDate) + (r.soon ? ' <span class="chip chip-soon">即將</span>' : '') + '</dd></div>' +
+        '<div><dt>到期日</dt><dd>' + esc(b.maturity) + '</dd></div>' +
+        '<div><dt>年期</dt><dd>' + esc(b.tenorYear) + ' 年</dd></div>' +
+        '<div><dt>擔保</dt><dd>' + esc(b.guaranteed) + '</dd></div>' +
+        '<div><dt>票面利率</dt><dd>' + (b.couponRate || 0).toFixed(3) + '%</dd></div>' +
+        '<div><dt>發行總額</dt><dd>' + fmtAmt(b.issueAmt) + ' 億元</dd></div>' +
+        '<div><dt>流通餘額</dt><dd>' + fmtAmt(b.outAmt) + ' 億元</dd></div>' +
+        '<div><dt>發行時轉換價</dt><dd>' + (b.convPrice != null ? b.convPrice.toFixed(2) + ' 元' : "—") + '</dd></div>' +
+        '<div><dt>轉換期間</dt><dd style="font-size:13px">' + esc(b.convStart) + ' ～ ' + esc(b.convEnd) + '</dd></div>' +
+        '<div><dt>賣回日</dt><dd>' + (b.putDate || "—") + '</dd></div>' +
+        '<div><dt>賣回價</dt><dd>' + (b.putPrice != null ? b.putPrice.toFixed(2) : "—") + '</dd></div>' +
+      '</dl>' +
+      (anomalies.length
+        ? '<div class="banner" style="margin-top:10px"><b>⚠ 來源資料異常</b><br>' + anomalies.map(esc).join("<br>") + '</div>'
+        : '') +
+      '</div>';
+
+    document.getElementById("scrim").classList.add("open");
+    var p = document.getElementById("panel");
+    p.classList.add("open");
+    p.focus();
+    document.getElementById("closeBtn").addEventListener("click", closePanel);
+  }
+
+  function closePanel() {
+    document.getElementById("scrim").classList.remove("open");
+    document.getElementById("panel").classList.remove("open");
+    if (lastFocus && lastFocus.focus) lastFocus.focus();
+  }
+
+  // ---------- events ----------
+  document.getElementById("q").addEventListener("input", function (e) { filters.q = e.target.value; applyFilters(); });
+  document.getElementById("fGuar").addEventListener("change", function (e) { filters.guar = e.target.value; applyFilters(); });
+  document.getElementById("fGrade").addEventListener("change", function (e) { filters.grade = e.target.value; applyFilters(); });
+  document.querySelectorAll(".seg button").forEach(function (btn) {
+    btn.addEventListener("click", function () {
+      document.querySelectorAll(".seg button").forEach(function (b) { b.setAttribute("aria-pressed", "false"); });
+      btn.setAttribute("aria-pressed", "true");
+      filters.status = btn.dataset.status;
+      applyFilters();
+    });
+  });
+  document.querySelectorAll("thead th.sortable").forEach(function (th) {
+    th.addEventListener("click", function () {
+      var k = th.dataset.sort;
+      if (sortKey === k) sortDir = -sortDir;
+      else { sortKey = k; sortDir = (k === "bond") ? 1 : -1; }
+      applyFilters();
+    });
+  });
+  document.getElementById("rows").addEventListener("click", function (e) {
+    var tr = e.target.closest("tr[data-i]"); if (tr) openPanel(+tr.dataset.i);
+  });
+  document.getElementById("rows").addEventListener("keydown", function (e) {
+    if (e.key !== "Enter" && e.key !== " ") return;
+    var tr = e.target.closest("tr[data-i]"); if (tr) { e.preventDefault(); openPanel(+tr.dataset.i); }
+  });
+  document.getElementById("scrim").addEventListener("click", closePanel);
+  document.addEventListener("keydown", function (e) { if (e.key === "Escape") closePanel(); });
+
+  // ---------- load ----------
+  function note(html) { document.getElementById("dataNote").innerHTML = '<div class="banner">' + html + '</div>'; }
+
+  Promise.all([
+    fetch("data/bonds.json").then(function (r) { if (!r.ok) throw new Error("bonds " + r.status); return r.json(); }),
+    fetch("data/monthly_revenue.json").then(function (r) { return r.ok ? r.json() : null; }).catch(function () { return null; })
+  ]).then(function (res) {
+    bonds = res[0] || [];
+    revenue = res[1] || {};
+
+    build();
+    renderTiles();
+
+    // 最新月份：全體最大值，以及各標的個股實際落點
+    var maxYm = "";
+    Object.keys(revenue).forEach(function (k) {
+      (revenue[k].series || []).forEach(function (p) { if (p.ym > maxYm) maxYm = p.ym; });
+    });
+    var withRev = rowsData.filter(function (r) { return r.a.grade !== "nodata"; });
+    var covered = withRev.length;
+    var lagging = withRev.filter(function (r) { return r.a.latest && r.a.latest.ym < maxYm; }).length;
+
+    document.getElementById("asofLine").textContent = maxYm ? "截至 " + ymAD(maxYm) : "";
+
+    var msgs = [];
+    if (!Object.keys(revenue).length) {
+      msgs.push('<b>營收資料未載入。</b>可轉債清單正常顯示，但成長欄位會是空的。');
+    } else {
+      if (covered < rowsData.length) {
+        msgs.push('<b>' + covered + ' / ' + rowsData.length + '</b> 檔可轉債的標的個股查得到月營收；其餘多為金融、控股或外國企業，未列入公開資訊觀測站的月營收月報表。');
+      }
+      if (lagging) {
+        msgs.push('其中 <b>' + lagging + '</b> 檔的最新月份仍停在 ' + ymAD(maxYm.slice(0, 3) + String(+maxYm.slice(3) - 1).padStart(2, "0")) +
+          '　—　' + ymAD(maxYm) + ' 的營收申報期限適逢連假，尚有公司未送件。這些個股的滾動年增是以各自可得的月份計算，點開個股可看到實際最新月份。');
+      }
+    }
+    if (msgs.length) note(msgs.join("<br>"));
+
+    applyFilters();
+  }).catch(function (err) {
+    document.getElementById("rows").innerHTML =
+      '<tr><td colspan="8"><div class="empty">資料載入失敗：' + esc(err.message) + '</div></td></tr>';
+  });
+})();
+</script>
