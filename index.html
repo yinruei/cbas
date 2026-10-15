@@ -136,6 +136,14 @@
   .seg button:last-child { border-right: 0; }
   .seg button[aria-pressed="true"] { background: var(--ink); color: var(--surface); font-weight: 500; }
   .count { margin-left: auto; font-size: 13px; color: var(--ink-2); font-family: "IBM Plex Mono", ui-monospace, monospace; }
+  .viewseg { width: max-content; margin: 0 0 14px; }
+
+  /* 折溢價自成一個語意軸，不借用紅漲綠跌，避免與營收漲跌混淆 */
+  .disc { color: var(--accent-deep); font-weight: 600; }
+  .prem { color: var(--ink-2); }
+  .tagd { display: inline-block; font-size: 10px; padding: 1px 5px; border-radius: 3px; margin-right: 5px;
+          background: var(--accent-soft); color: var(--accent-deep); font-weight: 600; vertical-align: 1px; }
+  .sub2 { font-size: 11px; color: var(--ink-muted); font-family: "IBM Plex Mono", ui-monospace, monospace; }
 
   /* ---------- table ---------- */
   .tablewrap { overflow-x: auto; background: var(--surface); border: 1px solid var(--rule); border-radius: 8px; box-shadow: var(--shadow); }
@@ -235,6 +243,7 @@
       <b>可轉債</b>櫃買中心 ISSBD5
       <b>營收</b>公開資訊觀測站
       <b id="asofLine">—</b>
+      <b id="priceAsOfLine"></b>
     </div>
   </header>
 
@@ -268,26 +277,21 @@
     <span class="count" id="count"></span>
   </div>
 
+  <div class="seg viewseg" role="group" aria-label="檢視模式">
+    <button type="button" data-view="rev" aria-pressed="true">營收動能</button>
+    <button type="button" data-view="val" aria-pressed="false">可轉債評價</button>
+  </div>
+
   <div class="tablewrap">
     <table>
-      <thead>
-        <tr>
-          <th class="sortable" data-sort="bond">債券 / 標的<span class="arrow">↕</span></th>
-          <th class="sortable" data-sort="listingDate">掛牌日<span class="arrow">↕</span></th>
-          <th>擔保</th>
-          <th class="num sortable" data-sort="issueAmt">發行額<span class="arrow">↕</span></th>
-          <th>近 12 月營收走勢</th>
-          <th class="num sortable" data-sort="ttmYoY">滾動年增<span class="arrow">↕</span></th>
-          <th class="sortable" data-sort="streak">連續成長<span class="arrow">↕</span></th>
-          <th>動能</th>
-        </tr>
-      </thead>
+      <thead id="thead"></thead>
       <tbody id="rows"></tbody>
     </table>
   </div>
 
   <footer>
     <p><b>資料來源</b>：可轉債清單取自櫃買中心 OpenAPI <code>bond_ISSBD5_data</code>（僅公開發行，已排除私募）；月營收取自公開資訊觀測站 <code>t21sc03</code> 月報表。</p>
+    <p><b>可轉債評價</b>：百元價為每 100 元面額之報價（面額 10 萬／張）；轉換價取公開資訊觀測站月報之<b>現行值</b>，389 檔中有 300 檔已因除權息或現增向下重設，用發行時轉換價會算錯。轉換價值 ＝ (100 ÷ 轉換價) × 現股市價；折溢價 ＝ (百元價 − 轉換價值) ÷ 轉換價值；折現率為持有至賣回日的年化報酬（零息假設）。折溢價不套用紅綠配色，以免與營收漲跌混淆。</p>
     <p><b>讀法</b>：紅＝成長、綠＝衰退（台股慣例），顏色一律搭配 ▲▼ 與正負號。「滾動年增」為近 12 個月營收合計相對去年同期合計的增減，用意是壓掉單月與單季的雜訊；「連續成長」為最近一段期間年增率連續為正的月數。</p>
   </footer>
 </div>
@@ -301,9 +305,11 @@
 (function () {
   "use strict";
 
-  var TODAY = "2026-10-12";
-  var bonds = [], revenue = {}, rowsData = [], view = [];
+  var TODAY = "2026-10-15";
+  var bonds = [], revenue = {}, quotes = { cb: {}, stock: {}, asOf: {} }, rowsData = [], view = [];
   var sortKey = "listingDate", sortDir = -1;
+  var pricing = {}, priceAsOf = {}, viewMode = "rev", pricingLoaded = false;
+  var VAL_DATE = new Date(TODAY);   // 評價基準日，載入後改為行情日
   var filters = { q: "", guar: "", grade: "", status: "" };
 
   var GRADES = {
@@ -342,6 +348,57 @@
   }
   function ymAD(ym) {
     return (parseInt(ym.slice(0, 3), 10) + 1911) + "/" + ym.slice(3);
+  }
+  function fmtNum(v, d) {
+    if (v == null || !isFinite(v)) return "—";
+    return v.toLocaleString("en-US", { minimumFractionDigits: d == null ? 2 : d, maximumFractionDigits: d == null ? 2 : d });
+  }
+  function yearsBetween(fromISO, toISO) {
+    var a = new Date(fromISO), b = new Date(toISO);
+    return (b - a) / (365.25 * 24 * 3600 * 1000);
+  }
+
+  function q_noTradeReason(b) {
+    if (b.listingDate > TODAY) return "（尚未掛牌）";
+    return "（當日無成交）";
+  }
+
+  // ---------- CB 市價估值 ----------
+  // CB 以面額 100 報價，故 CSV 的「收市」即百元價。所有衍生值皆以 100 par 基準。
+  function valuation(b) {
+    var cbQ = quotes.cb[b.bondCode] || null;
+    var stQ = quotes.stock[b.stockCode] || null;
+    var cbPrice = cbQ && cbQ.close != null ? cbQ.close : null;   // 百元價 = CB 市價
+    var stPrice = stQ && stQ.close != null ? stQ.close : null;   // 現股市價
+    var convPrice = b.convPrice || null;                          // 轉換價格
+
+    var v = {
+      cbPrice: cbPrice, stPrice: stPrice, convPrice: convPrice,
+      par100: cbPrice,                 // 百元價（與 cbPrice 同義，列表用語不同）
+      convRatio: null,                 // 轉換率：每張（面額10萬）可轉幾股
+      convValue: null,                 // 轉換價值（百元制）
+      premium: null,                   // 折溢價率 %
+      ytp: null,                       // 折現率（持有至賣回的年化報酬，YTP）
+      putDate: b.putDate || null, putPrice: b.putPrice != null ? b.putPrice : null,
+      optExpiry: b.convEnd || null,    // 選擇權（轉換權）到期日 = 轉換期迄日
+      cbTrade: cbQ ? cbQ.trade : null
+    };
+
+    if (convPrice) {
+      v.convRatio = 100000 / convPrice;                          // 每張可轉股數
+      if (stPrice != null) {
+        v.convValue = stPrice / convPrice * 100;                 // = 現股 × (100/轉換價)
+        if (cbPrice != null && v.convValue > 0)
+          v.premium = (cbPrice - v.convValue) / v.convValue * 100;
+      }
+    }
+
+    // 折現率：現在用 cbPrice 買，賣回日拿到 putPrice（含期間零息），年化
+    if (cbPrice != null && v.putPrice != null && b.putDate && b.putDate > TODAY) {
+      var yrs = yearsBetween(TODAY, b.putDate);
+      if (yrs > 0.02) v.ytp = (Math.pow(v.putPrice / cbPrice, 1 / yrs) - 1) * 100;
+    }
+    return v;
   }
 
   // ---------- growth metrics ----------
@@ -435,15 +492,70 @@
       '<span class="' + (a.streakDir === 1 ? "val-up" : "val-down") + '">' + word + ' ' + a.streak + ' 月</span></span>';
   }
 
+  // ---------- 可轉債評價 ----------
+  // 面額 10 萬元，報價為百元價（每 100 元面額之價格）。
+  // 轉換價一律用 MOPS 月報的「現行」值——389 檔中 300 檔已向下重設，
+  // 用 bonds.json 的發行時轉換價會把轉換價值與折溢價全算錯。
+  function valuation(b) {
+    var p = pricing[b.bondCode];
+    if (!p) return null;
+    var v = {
+      cbClose:    p.cbClose    != null ? p.cbClose    : null,   // 百元價
+      cbChange:   p.cbChange   != null ? p.cbChange   : null,
+      cbVolume:   p.cbVolume   != null ? p.cbVolume   : 0,
+      stockPrice: p.stockPrice != null ? p.stockPrice : null,
+      convPrice:  p.convPrice  != null ? p.convPrice  : null,
+      convReset:  p.convReset || "",
+      stockDate:  p.stockDate || ""
+    };
+    // 上市現股收盤常比 CB 行情晚一天發布；跨日比價會讓折溢價失真，逐檔標示
+    v.stale = !!(v.stockDate && priceAsOf.cbQuote && v.stockDate < priceAsOf.cbQuote);
+    v.cbMarket  = v.cbClose != null ? v.cbClose * 1000 : null;              // 每張市價
+    v.convRatio = v.convPrice ? 100000 / v.convPrice : null;                // 每張可轉股數
+    v.convValue = (v.convPrice && v.stockPrice != null)
+                    ? (100 / v.convPrice) * v.stockPrice : null;            // 轉換價值（百元基準）
+    v.premium   = (v.convValue && v.cbClose != null)
+                    ? (v.cbClose - v.convValue) / v.convValue * 100 : null; // 折溢價率
+
+    // 折現率：持有至賣回日的年化報酬（台灣可轉債多為零息，故以零息折現）
+    v.ytp = null; v.ytpYears = null;
+    if (v.cbClose && b.putDate && b.putPrice) {
+      var T = (new Date(b.putDate) - VAL_DATE) / 86400000 / 365.25;
+      if (T > 0.01) { v.ytpYears = T; v.ytp = (Math.pow(b.putPrice / v.cbClose, 1 / T) - 1) * 100; }
+    }
+    v.optExpiry = b.convEnd || b.maturity;   // 選擇權（轉換權）到期日
+    return v;
+  }
+
+  function premiumCell(v) {
+    if (!v || v.premium == null) return '<span class="dash">—</span>';
+    var d = v.premium < 0;
+    return '<span class="' + (d ? "disc" : "prem") + '">' +
+      (d ? '<span class="tagd">折價</span>' : "") +
+      (v.premium > 0 ? "+" : v.premium < 0 ? "−" : "") + Math.abs(v.premium).toFixed(2) + "%</span>";
+  }
+
+  function num(x, d, unit) {
+    if (x == null || !isFinite(x)) return '<span class="dash">—</span>';
+    return x.toFixed(d == null ? 2 : d) + (unit || "");
+  }
+
   // ---------- build rows ----------
   function build() {
     rowsData = bonds.map(function (b) {
       var a = analyse(b.stockCode);
+      var v = valuation(b);
       return {
-        b: b, a: a,
+        b: b, a: a, v: v,
         soon: b.listingDate > TODAY,
         ttmYoY: a.ttm == null ? -Infinity : a.ttm,
-        streakSort: a.grade === "nodata" ? -Infinity : (a.streakDir === 1 ? a.streak : -a.streak)
+        streakSort: a.grade === "nodata" ? -Infinity : (a.streakDir === 1 ? a.streak : -a.streak),
+        cbCloseSort:  (v && v.cbClose    != null) ? v.cbClose    : -Infinity,
+        stockSort:    (v && v.stockPrice != null) ? v.stockPrice : -Infinity,
+        convSort:     (v && v.convPrice  != null) ? v.convPrice  : -Infinity,
+        convValSort:  (v && v.convValue  != null) ? v.convValue  : -Infinity,
+        premiumSort:  (v && v.premium    != null) ? v.premium    :  Infinity,
+        ytpSort:      (v && v.ytp        != null) ? v.ytp        : -Infinity
       };
     });
   }
@@ -466,43 +578,95 @@
       var av, bv;
       if (sortKey === "bond") { av = x.b.issuer; bv = y.b.issuer; return av < bv ? -sortDir : av > bv ? sortDir : 0; }
       if (sortKey === "listingDate") { av = x.b.listingDate; bv = y.b.listingDate; return av < bv ? -sortDir : av > bv ? sortDir : 0; }
-      if (sortKey === "issueAmt") { av = x.b.issueAmt; bv = y.b.issueAmt; }
-      else if (sortKey === "ttmYoY") { av = x.ttmYoY; bv = y.ttmYoY; }
-      else { av = x.streakSort; bv = y.streakSort; }
+      if (sortKey === "putDate") { av = x.b.putDate || ""; bv = y.b.putDate || ""; return av < bv ? -sortDir : av > bv ? sortDir : 0; }
+      var M = {
+        issueAmt: "b.issueAmt", ttmYoY: "ttmYoY", streak: "streakSort",
+        cbClose: "cbCloseSort", stockPrice: "stockSort", convPrice: "convSort",
+        convValue: "convValSort", premium: "premiumSort", ytp: "ytpSort"
+      };
+      var key = M[sortKey] || "streakSort";
+      av = key === "b.issueAmt" ? x.b.issueAmt : x[key];
+      bv = key === "b.issueAmt" ? y.b.issueAmt : y[key];
       return (av - bv) * sortDir;
     });
 
     render();
   }
 
-  function render() {
-    var tb = document.getElementById("rows");
-    if (!view.length) {
-      tb.innerHTML = '<tr><td colspan="8"><div class="empty">沒有符合條件的可轉債。調整搜尋或篩選條件再試。</div></td></tr>';
-    } else {
-      tb.innerHTML = view.map(function (r, i) {
-        var b = r.b, a = r.a, g = GRADES[a.grade];
-        var mom = a.momentum;
-        // 「轉強／轉弱」是相對自身近 12 月均值，成長與衰退兩種情境都講得通；
-        // 用「加速」會讓衰退趨緩被誤讀成加速成長。
-        var momTxt = a.grade === "nodata" || mom == null ? '<span class="dash">—</span>'
-          : '<span class="chip ' + (mom > 1 ? "chip-up" : mom < -1 ? "chip-down" : "chip-flat") + '" title="近 3 月年增均值相對近 12 月年增均值">' +
-            (mom > 1 ? "▲ 轉強" : mom < -1 ? "▼ 轉弱" : "■ 持平") + '</span>';
+  var HEADS = {
+    rev: [
+      { k: "bond", t: "債券 / 標的" }, { k: "listingDate", t: "掛牌日", n: 1 },
+      { t: "擔保" }, { k: "issueAmt", t: "發行額", n: 1 },
+      { t: "近 12 月營收走勢" }, { k: "ttmYoY", t: "滾動年增", n: 1 },
+      { k: "streak", t: "連續成長" }, { t: "動能" }
+    ],
+    val: [
+      { k: "bond", t: "債券 / 標的" },
+      { k: "cbClose", t: "百元價", n: 1 }, { k: "stockPrice", t: "現股市價", n: 1 },
+      { k: "convPrice", t: "轉換價", n: 1 }, { k: "convValue", t: "轉換價值", n: 1 },
+      { k: "premium", t: "折溢價", n: 1 }, { t: "轉換率", n: 1 },
+      { k: "putDate", t: "賣回日 / 賣回價", n: 1 }, { k: "ytp", t: "折現率", n: 1 }
+    ]
+  };
 
-        return '<tr tabindex="0" data-i="' + i + '">' +
-          '<td><div class="bondname">' + esc(b.bondName) + ' ' +
-            (r.soon ? '<span class="chip chip-soon">即將掛牌</span>' : '') + '</div>' +
-            '<div class="stockline"><span class="code">' + esc(b.stockCode) + '</span> ' + esc(b.issuer) +
-            (a.industry ? ' · ' + esc(a.industry) : '') + '</div></td>' +
-          '<td class="num">' + esc(b.listingDate) + '</td>' +
-          '<td><span class="chip chip-guar">' + esc(b.guaranteed) + '</span></td>' +
-          '<td class="num">' + fmtAmt(b.issueAmt) + ' 億</td>' +
-          '<td>' + sparkline(a.series, 132, 34) + '</td>' +
-          '<td class="num ' + toneClass(a.ttm) + '">' + fmtPct(a.ttm) + '</td>' +
-          '<td>' + streakPips(a) + '</td>' +
-          '<td>' + momTxt + '</td>' +
-          '</tr>';
-      }).join("");
+  function renderHead() {
+    document.getElementById("thead").innerHTML = "<tr>" + HEADS[viewMode].map(function (h) {
+      return "<th" + (h.n ? ' class="num' + (h.k ? " sortable" : "") + '"' : (h.k ? ' class="sortable"' : "")) +
+        (h.k ? ' data-sort="' + h.k + '"' : "") + ">" + h.t +
+        (h.k ? '<span class="arrow">↕</span>' : "") + "</th>";
+    }).join("") + "</tr>";
+  }
+
+  function nameCell(r) {
+    var b = r.b, a = r.a;
+    return '<td><div class="bondname">' + esc(b.bondName) + ' ' +
+      (r.soon ? '<span class="chip chip-soon">即將掛牌</span>' : '') + '</div>' +
+      '<div class="stockline"><span class="code">' + esc(b.stockCode) + '</span> ' + esc(b.issuer) +
+      (a.industry ? ' · ' + esc(a.industry) : '') + '</div></td>';
+  }
+
+  function rowRev(r, i) {
+    var b = r.b, a = r.a, mom = a.momentum;
+    // 「轉強／轉弱」是相對自身近 12 月均值，成長與衰退兩種情境都講得通；
+    // 用「加速」會讓衰退趨緩被誤讀成加速成長。
+    var momTxt = a.grade === "nodata" || mom == null ? '<span class="dash">—</span>'
+      : '<span class="chip ' + (mom > 1 ? "chip-up" : mom < -1 ? "chip-down" : "chip-flat") + '" title="近 3 月年增均值相對近 12 月年增均值">' +
+        (mom > 1 ? "▲ 轉強" : mom < -1 ? "▼ 轉弱" : "■ 持平") + '</span>';
+    return '<tr tabindex="0" data-i="' + i + '">' + nameCell(r) +
+      '<td class="num">' + esc(b.listingDate) + '</td>' +
+      '<td><span class="chip chip-guar">' + esc(b.guaranteed) + '</span></td>' +
+      '<td class="num">' + fmtAmt(b.issueAmt) + ' 億</td>' +
+      '<td>' + sparkline(a.series, 132, 34) + '</td>' +
+      '<td class="num ' + toneClass(a.ttm) + '">' + fmtPct(a.ttm) + '</td>' +
+      '<td>' + streakPips(a) + '</td>' +
+      '<td>' + momTxt + '</td></tr>';
+  }
+
+  function rowVal(r, i) {
+    var b = r.b, v = r.v;
+    var chg = (v && v.cbChange != null && v.cbChange !== 0)
+      ? '<div class="sub2 ' + toneClass(v.cbChange) + '">' + (v.cbChange > 0 ? "▲+" : "▼−") + Math.abs(v.cbChange).toFixed(2) + '</div>' : "";
+    return '<tr tabindex="0" data-i="' + i + '">' + nameCell(r) +
+      '<td class="num">' + (v ? num(v.cbClose) : '<span class="dash">—</span>') + chg + '</td>' +
+      '<td class="num">' + (v ? num(v.stockPrice) : '<span class="dash">—</span>') +
+        (v && v.stale ? '<div class="sub2" title="此現股收盤早於 CB 行情日，折溢價會略有偏差">⚠ ' + esc(v.stockDate) + '</div>' : "") + '</td>' +
+      '<td class="num">' + (v ? num(v.convPrice) : '<span class="dash">—</span>') +
+        (v && v.convReset ? '<div class="sub2">重設 ' + esc(v.convReset) + '</div>' : "") + '</td>' +
+      '<td class="num">' + (v ? num(v.convValue) : '<span class="dash">—</span>') + '</td>' +
+      '<td class="num">' + premiumCell(v) + '</td>' +
+      '<td class="num">' + (v && v.convRatio ? Math.round(v.convRatio).toLocaleString() + ' 股' : '<span class="dash">—</span>') + '</td>' +
+      '<td class="num">' + (b.putDate ? esc(b.putDate) + '<div class="sub2">' + (b.putPrice != null ? b.putPrice.toFixed(2) : "—") + '</div>' : '<span class="dash">—</span>') + '</td>' +
+      '<td class="num ' + (v && v.ytp != null && v.ytp > 0 ? "disc" : "") + '">' + (v && v.ytp != null ? num(v.ytp, 2, "%") : '<span class="dash">—</span>') + '</td></tr>';
+  }
+
+  function render() {
+    renderHead();
+    var tb = document.getElementById("rows");
+    var cols = HEADS[viewMode].length;
+    if (!view.length) {
+      tb.innerHTML = '<tr><td colspan="' + cols + '"><div class="empty">沒有符合條件的可轉債。調整搜尋或篩選條件再試。</div></td></tr>';
+    } else {
+      tb.innerHTML = view.map(viewMode === "rev" ? rowRev : rowVal).join("");
     }
     document.getElementById("count").textContent = view.length + " / " + rowsData.length + " 檔";
     updateSortIndicators();
@@ -611,9 +775,36 @@
     var b = r.b, a = r.a, g = GRADES[a.grade];
     lastFocus = document.activeElement;
 
+    // ---- 市價與轉換分析 ----
+    var v = valuation(b);
+    var cbAsOf = quotes.asOf && quotes.asOf.cb ? quotes.asOf.cb : "";
+    var premCls = v.premium == null ? "val-flat" : v.premium > 0 ? "val-up" : "val-down";
+    // 折價（premium<0）＝ CB 便宜於轉換價值，對買方有利；溢價反之。顏色僅輔助，數字帶正負號。
+    var mktBlock =
+      '<div class="sect"><h3>市價與轉換分析</h3>' +
+      (v.cbPrice == null
+        ? '<div class="banner" style="margin-bottom:10px">此可轉債於 ' + (cbAsOf || "最近交易日") + ' 無收盤成交價' +
+          (q_noTradeReason(b)) + '。以下仍列出可由發行條件計算的欄位。</div>'
+        : '') +
+      '<dl class="kv">' +
+        '<div><dt>CB 市價（百元價）</dt><dd class="' + toneClass(v.cbPrice != null ? (v.cbPrice - 100) : null) + '">' + (v.cbPrice != null ? fmtNum(v.cbPrice) : "—") + (v.cbTrade ? ' <span style="font-size:11px;color:var(--ink-muted)">' + esc(v.cbTrade) + '</span>' : '') + '</dd></div>' +
+        '<div><dt>現股市價</dt><dd>' + (v.stPrice != null ? fmtNum(v.stPrice) + ' 元' : "—") + '</dd></div>' +
+        '<div><dt>轉換價格</dt><dd>' + (v.convPrice != null ? fmtNum(v.convPrice) + ' 元' : "—") + '</dd></div>' +
+        '<div><dt>轉換率（每張可轉股數）</dt><dd>' + (v.convRatio != null ? fmtNum(v.convRatio, 0) + ' 股' : "—") + '</dd></div>' +
+        '<div><dt>轉換價值（百元）</dt><dd>' + (v.convValue != null ? fmtNum(v.convValue) : "—") + '</dd></div>' +
+        '<div><dt>折溢價率</dt><dd class="' + premCls + '">' + fmtPct(v.premium, 2) +
+          (v.premium == null ? "" : ' <span style="font-size:11px;color:var(--ink-muted)">' + (v.premium > 0 ? "溢價" : "折價") + '</span>') + '</dd></div>' +
+        '<div><dt>折現率（持有至賣回）</dt><dd class="' + toneClass(v.ytp) + '">' + fmtPct(v.ytp, 2) + '</dd></div>' +
+        '<div><dt>賣回日</dt><dd>' + (v.putDate || "—") + '</dd></div>' +
+        '<div><dt>賣回價</dt><dd>' + (v.putPrice != null ? fmtNum(v.putPrice) : "—") + '</dd></div>' +
+        '<div><dt>選擇權到期日</dt><dd>' + (v.optExpiry || "—") + '</dd></div>' +
+      '</dl>' +
+      '<figcaption>百元價＝以面額 100 計的 CB 報價。轉換價值＝現股市價 ÷ 轉換價 × 100；折溢價率＝(CB市價 − 轉換價值) ÷ 轉換價值。折現率為以現價買進、持有至賣回日按賣回價計的年化報酬（零息假設），僅供參考。' +
+        (cbAsOf ? '　價格日期 ' + cbAsOf + '。' : '') + '</figcaption></div>';
+
     var metrics = a.grade === "nodata"
-      ? '<div class="banner">找不到 <b>' + esc(b.stockCode) + '</b> 的月營收資料。可能是金融、控股或外國企業，未列入公開資訊觀測站的月營收月報表。</div>'
-      : '<div class="sect"><h3>成長判讀</h3><dl class="kv">' +
+      ? mktBlock + '<div class="banner">找不到 <b>' + esc(b.stockCode) + '</b> 的月營收資料。可能是金融、控股或外國企業，未列入公開資訊觀測站的月營收月報表。</div>'
+      : mktBlock + '<div class="sect"><h3>成長判讀</h3><dl class="kv">' +
           '<div><dt>綜合評級</dt><dd><span class="chip chip-' + g.tone + '">' + g.icon + ' ' + g.label + '</span></dd></div>' +
           '<div><dt>滾動 12 月年增</dt><dd class="' + toneClass(a.ttm) + '">' + fmtPct(a.ttm) + '</dd></div>' +
           '<div><dt>連續' + (a.streakDir === 1 ? "成長" : "衰退") + '</dt><dd class="' + (a.streakDir === 1 ? "val-up" : a.streakDir === -1 ? "val-down" : "val-flat") + '">' + (a.streak || "—") + ' 個月</dd></div>' +
@@ -636,12 +827,40 @@
     if (b.convEnd && b.maturity && b.convEnd > b.maturity)
       anomalies.push("轉換期迄日 " + b.convEnd + " 晚於到期日 " + b.maturity + "。");
 
+    // 可轉債評價（使用者指定的 11 項）
+    var v = r.v;
+    var valSect = "";
+    if (v && (v.cbClose != null || v.convPrice != null)) {
+      valSect = '<div class="sect"><h3>可轉債評價</h3><dl class="kv">' +
+        '<div><dt>CB 市價（每張，面額 10 萬）</dt><dd>' + (v.cbMarket != null ? Math.round(v.cbMarket).toLocaleString() + ' 元' : "—") + '</dd></div>' +
+        '<div><dt>百元價</dt><dd>' + num(v.cbClose) +
+          (v.cbChange != null && v.cbChange !== 0 ? ' <span style="font-size:12px" class="' + toneClass(v.cbChange) + '">' + (v.cbChange > 0 ? "▲+" : "▼−") + Math.abs(v.cbChange).toFixed(2) + '</span>' : "") + '</dd></div>' +
+        '<div><dt>現股市價</dt><dd>' + num(v.stockPrice) + ' 元' +
+          (v.stockDate ? '<div class="sub2">' + (v.stale ? "⚠ " : "") + esc(v.stockDate) + (v.stale ? "（早於 CB 行情日）" : "") + '</div>' : "") + '</dd></div>' +
+        '<div><dt>轉換價格（現行）</dt><dd>' + num(v.convPrice) + ' 元' +
+          (v.convReset ? '<div class="sub2">重設日 ' + esc(v.convReset) + '</div>' : "") + '</dd></div>' +
+        '<div><dt>轉換價值</dt><dd>' + num(v.convValue) + '</dd></div>' +
+        '<div><dt>折溢價</dt><dd>' + premiumCell(v) + '</dd></div>' +
+        '<div><dt>轉換率（每張可轉股數）</dt><dd>' + (v.convRatio ? Math.round(v.convRatio).toLocaleString() + ' 股' : "—") + '</dd></div>' +
+        '<div><dt>賣回日</dt><dd>' + (b.putDate || "—") + '</dd></div>' +
+        '<div><dt>賣回價</dt><dd>' + (b.putPrice != null ? b.putPrice.toFixed(2) : "—") + '</dd></div>' +
+        '<div><dt>折現率（至賣回日年化）</dt><dd class="' + (v.ytp != null && v.ytp > 0 ? "disc" : "") + '">' + (v.ytp != null ? num(v.ytp, 2, "%") : "—") +
+          (v.ytpYears ? '<div class="sub2">剩餘 ' + v.ytpYears.toFixed(2) + ' 年</div>' : "") + '</dd></div>' +
+        '<div><dt>選擇權到期日</dt><dd>' + esc(v.optExpiry || "—") + '<div class="sub2">轉換權迄日</div></dd></div>' +
+        '<div><dt>票面利率</dt><dd>' + (b.couponRate || 0).toFixed(3) + '%</dd></div>' +
+      '</dl>' +
+      '<p class="sub2" style="margin-top:8px;line-height:1.7">轉換價值 ＝ (100 ÷ 轉換價) × 現股市價　·　折溢價 ＝ (百元價 − 轉換價值) ÷ 轉換價值' +
+      (b.couponRate > 0 ? '<br>本檔票面利率非零，折現率以零息假設計算，會略為低估。' : '') + '</p></div>';
+    } else if (pricingLoaded) {
+      valSect = '<div class="sect"><h3>可轉債評價</h3><div class="banner">查無此債的行情或轉換價資料。可轉債流動性較低，當日無成交即無收盤價。</div></div>';
+    }
+
     document.getElementById("panelIn").innerHTML =
       '<div class="panel-head"><div>' +
         '<h2 id="panelTitle">' + esc(b.bondName) + '</h2>' +
         '<div class="meta">' + esc(b.bondCode) + '　·　' + esc(b.stockCode) + ' ' + esc(b.issuer) + '</div>' +
       '</div><button class="closebtn" id="closeBtn" aria-label="關閉">✕</button></div>' +
-      metrics +
+      metrics + valSect +
       '<div class="sect"><h3>債券條件</h3><dl class="kv">' +
         '<div><dt>發行日</dt><dd>' + esc(b.issueDate) + '</dd></div>' +
         '<div><dt>掛牌日</dt><dd>' + esc(b.listingDate) + (r.soon ? ' <span class="chip chip-soon">即將</span>' : '') + '</dd></div>' +
@@ -686,11 +905,23 @@
       applyFilters();
     });
   });
-  document.querySelectorAll("thead th.sortable").forEach(function (th) {
-    th.addEventListener("click", function () {
-      var k = th.dataset.sort;
-      if (sortKey === k) sortDir = -sortDir;
-      else { sortKey = k; sortDir = (k === "bond") ? 1 : -1; }
+  // thead 會隨檢視重建，故用事件委派
+  document.getElementById("thead").addEventListener("click", function (e) {
+    var th = e.target.closest("th.sortable"); if (!th) return;
+    var k = th.dataset.sort;
+    if (sortKey === k) sortDir = -sortDir;
+    // 折溢價預設由小到大（折價最多的排前面），其餘數值欄預設由大到小
+    else { sortKey = k; sortDir = (k === "bond" || k === "premium") ? 1 : -1; }
+    applyFilters();
+  });
+  document.querySelectorAll(".viewseg button").forEach(function (btn) {
+    btn.addEventListener("click", function () {
+      if (viewMode === btn.dataset.view) return;
+      document.querySelectorAll(".viewseg button").forEach(function (b) { b.setAttribute("aria-pressed", "false"); });
+      btn.setAttribute("aria-pressed", "true");
+      viewMode = btn.dataset.view;
+      if (viewMode === "val") { sortKey = "premium"; sortDir = 1; }
+      else { sortKey = "listingDate"; sortDir = -1; }
       applyFilters();
     });
   });
@@ -709,10 +940,13 @@
 
   Promise.all([
     fetch("data/bonds.json").then(function (r) { if (!r.ok) throw new Error("bonds " + r.status); return r.json(); }),
-    fetch("data/monthly_revenue.json").then(function (r) { return r.ok ? r.json() : null; }).catch(function () { return null; })
+    fetch("data/monthly_revenue.json").then(function (r) { return r.ok ? r.json() : null; }).catch(function () { return null; }),
+    fetch("data/pricing.json").then(function (r) { return r.ok ? r.json() : null; }).catch(function () { return null; })
   ]).then(function (res) {
     bonds = res[0] || [];
     revenue = res[1] || {};
+    var pr = res[2];
+    if (pr) { pricingLoaded = true; pricing = pr.rows || {}; priceAsOf = pr.asOf || {}; if (priceAsOf.cbQuote) VAL_DATE = new Date(priceAsOf.cbQuote); }
 
     build();
     renderTiles();
@@ -726,7 +960,13 @@
     var covered = withRev.length;
     var lagging = withRev.filter(function (r) { return r.a.latest && r.a.latest.ym < maxYm; }).length;
 
-    document.getElementById("asofLine").textContent = maxYm ? "截至 " + ymAD(maxYm) : "";
+    document.getElementById("asofLine").textContent = maxYm ? "營收截至 " + ymAD(maxYm) : "";
+    if (pricingLoaded) {
+      var dates = [priceAsOf.stockSii, priceAsOf.stockOtc].filter(Boolean);
+      var lag = dates.filter(function (d) { return d < priceAsOf.cbQuote; });
+      document.getElementById("priceAsOfLine").textContent =
+        "行情 " + (priceAsOf.cbQuote || "—") + (lag.length ? "／部分現股 " + lag.sort()[0] : "");
+    }
 
     var msgs = [];
     if (!Object.keys(revenue).length) {

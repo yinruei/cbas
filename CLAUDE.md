@@ -8,9 +8,11 @@
 - `index.html` — 全部的 UI 與邏輯（無建置步驟、無外部 JS 相依；字型用 Google Fonts）。
   以 `fetch("data/*.json")` 載入資料，所以**必須經 HTTP 服務**開啟（`python -m http.server`），
   直接 file:// 開會因 CORS 載不到資料。
-- `data/bonds.json` — 可轉債清單（約 386 筆）。
-- `data/monthly_revenue.json` — 上市＋上櫃約 1,856 家公司的月營收序列。
-- `scripts/update-data.ps1` — 重抓以上兩檔。Windows PowerShell 5.1 可跑；
+- `data/bonds.json` — 可轉債清單（約 389 筆）。
+- `data/monthly_revenue.json` — 上市＋上櫃約 1,857 家公司的月營收序列。
+- `data/pricing.json` — CB 百元價、現股收盤、現行轉換價（評價用）。
+- `scripts/update-pricing.ps1` — 重抓 pricing.json。
+- `scripts/update-data.ps1` — 重抓前兩檔。Windows PowerShell 5.1 可跑；
   **此檔必須保持 UTF-8 with BOM**（PS 5.1 讀無 BOM 檔會當 ANSI，中文字串literal 會壞）。
 
 ## 資料來源與格式
@@ -32,6 +34,18 @@
 - 下載時用 `WebClient.DownloadData` 取 bytes 再手動解碼——
   `Invoke-WebRequest` 對無 charset 回應預設 ISO-8859-1，中文會變亂碼。
 
+### pricing.json ← 三個來源
+- **CB 百元價**：櫃買每日行情 CSV
+  `https://www.tpex.org.tw/storage/bond_zone/tradeinfo/cb/{YYYY}/{YYYYMM}/RSta0113.{YYYYMMDD}-C.csv`
+  Big5；列首為 `BODY,`；欄序 代號,名稱,交易,收市,漲跌,開市,最高,最低,筆數,單位,金額,...
+  同一檔有「等價」「議價」兩列，取先出現者。約 200/389 檔當日有成交。
+- **現行轉換價**：MOPS `https://mopsov.twse.com.tw/nas/t120/CBTRN{YYYYMM}.htm`
+  Big5；7 欄，代號與名稱用 `<br>` 擠在同一格——**剝標籤前要先把 `<br>` 換成分隔符**，
+  否則 `11011台泥一永` 連在一起取不到代號。轉換價在 index 4、重設日在 index 5。
+- **現股收盤**：TWSE `exchangeReport/STOCK_DAY_ALL`＋TPEX `tpex_mainboard_daily_close_quotes`。
+  **PS 5.1 的 `ConvertFrom-Json` 有 MaxJsonLength 上限，TPEX feed 會超過而丟 ArgumentException**，
+  故改用 `JavaScriptSerializer`（`MaxJsonLength = [int]::MaxValue`），回傳 Dictionary 要用 `['key']` 取值。
+
 ## 已知資料陷阱（都處理過，改code前先讀）
 
 1. **當月申報可能不齊**：每月 10 日為申報期限，撞假日會順延；缺的公司在月頁上
@@ -39,7 +53,12 @@
    補救：刪 `scripts/raw/*_<ym>.html` 快取重跑腳本。
 2. **來源資料本身有錯**：如 8021 尖點三轉換起日比發行日早一年（櫃買原始資料誤植）。
    原則：**不改原值**，在 UI 明細面板標示「來源資料異常」（index.html 內 anomalies 區塊）。
-3. 金融/控股/外國企業（約 33/386 檔）不在月營收報表 → UI 顯示「無資料」等級，屬正常。
+3. 金融/控股/外國企業（約 33/389 檔）不在月營收報表 → UI 顯示「無資料」等級，屬正常。
+4. **轉換價會重設**：389 檔中 300 檔的現行轉換價已與發行時不同（除權息、現增向下調整）。
+   bonds.json 的 `convPrice` 是**發行時**的值，算轉換價值與折溢價**必須**改用 pricing.json 的現行值。
+5. **上市現股收盤比 CB 行情晚一天**：TWSE 的 API 盤後才更新，跨日比價會讓折溢價失真。
+   pricing.json 逐檔記錄 `stockDate`，UI 在落後的列標 ⚠ 並於抬頭顯示「部分現股 <日期>」。
+6. 可轉債流動性低，當日無成交即無收盤價（約 190/389 檔無報價），評價欄位顯示「—」屬正常。
 
 ## 指標定義（index.html 的 analyse()）
 
@@ -48,6 +67,17 @@
 - **動能 (momentum)**：近 3 月 YoY 均值 − 全期 YoY 均值；>+1「轉強」、<−1「轉弱」。
   用詞刻意避免「加速/減速」——衰退趨緩時 momentum 為正，「加速」會被誤讀成加速成長。
 - 評級：strong（成長中且連增≥6月）/ steady（≥65%月份正成長）/ growing / fading / declining / nodata。
+
+## 評價公式（index.html 的 valuation()）
+
+- 面額 10 萬／張，報價為百元價。**CB 市價 ＝ 百元價 × 1000**
+- **轉換價值 ＝ (100 ÷ 現行轉換價) × 現股市價**（百元基準，與百元價同單位才能比較）
+- **折溢價 ＝ (百元價 − 轉換價值) ÷ 轉換價值**
+- **轉換率 ＝ 100,000 ÷ 現行轉換價**（每張可轉股數）
+- **折現率 ＝ (賣回價 ÷ 百元價)^(1/剩餘年數) − 1**，零息假設（台灣可轉債票面利率幾乎都是 0%）
+- **選擇權到期日** 取轉換權迄日 `convEnd`
+- 折溢價**不套用紅漲綠跌**：它是「貴/便宜」不是「漲/跌」，與營收漲跌共用紅綠會誤導。
+  折價用強調色 `--accent-deep` 並加「折價」標籤，溢價用一般文字色。
 
 ## 設計決策
 
@@ -61,8 +91,9 @@
 ## 更新與部署流程
 
 ```
-powershell -ExecutionPolicy Bypass -File scripts/update-data.ps1
-git add data && git commit -m "更新營收資料"
+powershell -ExecutionPolicy Bypass -File scripts/update-data.ps1     # 營收＋債券清單（月更）
+powershell -ExecutionPolicy Bypass -File scripts/update-pricing.ps1  # 行情＋轉換價（日更）
+git add data && git commit -m "更新資料"
 git push origin main main:gh-pages
 ```
 
