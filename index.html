@@ -120,8 +120,14 @@
     letter-spacing: -.01em; margin: 0; text-wrap: balance; line-height: 1.25;
   }
   .masthead .sub { color: var(--ink-2); font-size: 15px; max-width: 62ch; margin: 6px 0 0; }
-  .asof { margin-left: auto; text-align: right; font-size: 12.5px; color: var(--ink-muted); font-family: var(--f-mono); line-height: 1.7; }
-  .asof b { display: block; color: var(--ink-2); font-weight: 500; }
+  .asof { margin-left: auto; display: flex; flex-wrap: wrap; gap: 6px 8px; justify-content: flex-end; }
+  .asof i { display: inline-flex; align-items: baseline; gap: 5px; font-style: normal;
+            font-size: 12px; padding: 3px 9px; border-radius: 20px;
+            background: var(--surface-2); border: 1px solid var(--rule); white-space: nowrap; }
+  .asof i u { text-decoration: none; color: var(--ink-muted); font-size: 11px; }
+  .asof i s { text-decoration: none; color: var(--ink-2); font-family: var(--f-mono); font-variant-numeric: tabular-nums; }
+  .asof i.warn { border-color: color-mix(in srgb, var(--accent) 35%, transparent); background: var(--accent-soft); }
+  .asof i.warn u, .asof i.warn s { color: var(--accent-deep); }
 
   /* ---------- summary tiles ---------- */
   .tiles { display: grid; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); gap: 1px; background: var(--rule); border: 1px solid var(--rule); margin: 24px 0 0; border-radius: 8px; overflow: hidden; }
@@ -154,6 +160,12 @@
   }
   .seg button:last-child { border-right: 0; }
   .seg button[aria-pressed="true"] { background: var(--ink); color: var(--surface); font-weight: 500; }
+  .preset { font: inherit; font-size: 13.5px; min-height: 40px; padding: 9px 15px; cursor: pointer;
+            border-radius: 7px; white-space: nowrap;
+            background: var(--surface); color: var(--accent-deep);
+            border: 1px solid color-mix(in srgb, var(--accent) 45%, transparent); font-weight: 500; }
+  .preset:hover { background: var(--accent-soft); }
+  .preset[aria-pressed="true"] { background: var(--accent); color: #fff; border-color: var(--accent); }
   .count { margin-left: auto; font-size: 13.5px; color: var(--ink-2); font-family: var(--f-mono); }
   .viewseg { width: max-content; margin: 0 0 14px; }
 
@@ -284,12 +296,7 @@
       <h1>可轉債營收動能儀表板</h1>
       <p class="sub">櫃買中心已掛牌轉（交）換公司債，對照標的個股近 12 個月營收趨勢。成長判讀以滾動年增與連續成長月數為準，不看單月跳動。</p>
     </div>
-    <div class="asof">
-      <b>可轉債</b>櫃買中心 ISSBD5
-      <b>營收</b>公開資訊觀測站
-      <b id="asofLine">—</b>
-      <b id="priceAsOfLine"></b>
-    </div>
+    <div class="asof" id="asof" aria-label="各項資料的更新日期"></div>
   </header>
 
   <section class="tiles" id="tiles" aria-label="總覽"></section>
@@ -319,6 +326,10 @@
       <button type="button" data-status="soon" aria-pressed="false">即將掛牌</button>
       <button type="button" data-status="live" aria-pressed="false">已掛牌</button>
     </div>
+    <button type="button" class="preset" id="preset" aria-pressed="false"
+            title="同時符合：折溢價為負、滾動 12 月營收年增為正、選定區間法人買超">
+      ★ 折價 ＋ 成長 ＋ 買超
+    </button>
     <span class="count" id="count"></span>
   </div>
 
@@ -384,7 +395,7 @@
   var cbas = {}, cbasMeta = {}, PAR_FLOOR = 100;
   var chips = {}, chipsMeta = {}, CHIP_SCALE = 1, chipWin = 5;   // 籌碼區間：5/10/20 日
   var VAL_DATE = new Date(TODAY);   // 評價基準日，載入後改為行情日
-  var filters = { q: "", guar: "", grade: "", status: "" };
+  var filters = { q: "", guar: "", grade: "", status: "", preset: false };
 
   var GRADES = {
     strong:    { label: "強勁持續", tone: "up",   icon: "▲" },
@@ -808,6 +819,12 @@
       if (filters.grade && r.a.grade !== filters.grade) return false;
       if (filters.status === "soon" && !r.soon) return false;
       if (filters.status === "live" && r.soon) return false;
+      // 快捷篩選：折價、營收成長、法人買超三者同時成立（籌碼依目前選定的區間）
+      if (filters.preset) {
+        if (!r.v || r.v.premium == null || r.v.premium >= 0) return false;
+        if (!r.a || r.a.ttm == null || r.a.ttm <= 0) return false;
+        if (r.v.chipNet == null || r.v.chipNet <= 0) return false;
+      }
       if (q) {
         var hay = (r.b.stockCode + " " + r.b.issuer + " " + r.b.bondName + " " + r.b.bondCode + " " + (r.a.industry || "")).toLowerCase();
         if (hay.indexOf(q) === -1) return false;
@@ -920,7 +937,10 @@
     var tb = document.getElementById("rows");
     var cols = HEADS(viewMode).length;
     if (!view.length) {
-      tb.innerHTML = '<tr><td colspan="' + cols + '"><div class="empty">沒有符合條件的可轉債。調整搜尋或篩選條件再試。</div></td></tr>';
+      tb.innerHTML = '<tr><td colspan="' + cols + '"><div class="empty">' +
+        (filters.preset
+          ? '目前沒有同時符合「折價＋成長＋買超」的標的。可切換上方籌碼區間（5／10／20 日）再看一次。'
+          : '沒有符合條件的可轉債。調整搜尋或篩選條件再試。') + '</div></td></tr>';
     } else {
       tb.innerHTML = view.map(viewMode === "rev" ? rowRev : rowVal).join("");
     }
@@ -1194,6 +1214,19 @@
     else { sortKey = k; sortDir = (k === "bond" || k === "premium") ? 1 : -1; }
     applyFilters();
   });
+  document.getElementById("preset").addEventListener("click", function () {
+    var on = this.getAttribute("aria-pressed") !== "true";
+    this.setAttribute("aria-pressed", on ? "true" : "false");
+    filters.preset = on;
+    if (on && viewMode !== "val") {       // 這組條件只在評價檢視看得到，順手切過去
+      viewMode = "val";
+      document.querySelectorAll(".viewseg button").forEach(function (b) {
+        b.setAttribute("aria-pressed", b.dataset.view === "val" ? "true" : "false");
+      });
+      sortKey = "premium"; sortDir = 1;
+    }
+    applyFilters();
+  });
   document.querySelectorAll(".chipseg button").forEach(function (btn) {
     btn.addEventListener("click", function () {
       var w = +btn.dataset.win;
@@ -1255,13 +1288,20 @@
     var covered = withRev.length;
     var lagging = withRev.filter(function (r) { return r.a.latest && r.a.latest.ym < maxYm; }).length;
 
-    document.getElementById("asofLine").textContent = maxYm ? "營收截至 " + ymAD(maxYm) : "";
-    if (pricingLoaded) {
-      var dates = [priceAsOf.stockSii, priceAsOf.stockOtc].filter(Boolean);
-      var lag = dates.filter(function (d) { return d < priceAsOf.cbQuote; });
-      document.getElementById("priceAsOfLine").textContent =
-        "行情 " + (priceAsOf.cbQuote || "—") + (lag.length ? "／部分現股 " + lag.sort()[0] : "");
-    }
+    // 抬頭只放「哪份資料更新到哪天」，來源出處留在頁尾，不混在一起
+    var md = function (iso) { return iso ? iso.slice(5).replace("-", "/") : "—"; };
+    var stale = [priceAsOf.stockSii, priceAsOf.stockOtc].filter(Boolean)
+                  .filter(function (d) { return d < priceAsOf.cbQuote; }).sort();
+    var items = [];
+    if (pricingLoaded) items.push({ k: "行情", v: md(priceAsOf.cbQuote) });
+    if (stale.length)  items.push({ k: "部分現股", v: md(stale[0]), warn: true });
+    if (chipsMeta.asOf) items.push({ k: "籌碼", v: md(chipsMeta.asOf) });
+    if (maxYm)          items.push({ k: "營收", v: ymAD(maxYm) });
+    if (cbasMeta.asOf)  items.push({ k: "券商報價", v: md(cbasMeta.asOf) });
+    document.getElementById("asof").innerHTML = items.map(function (t) {
+      return '<i' + (t.warn ? ' class="warn" title="此現股收盤早於 CB 行情日，折溢價會略有偏差"' : '') +
+             '><u>' + t.k + '</u><s>' + esc(t.v) + '</s></i>';
+    }).join("");
 
     var msgs = [];
     if (!Object.keys(revenue).length) {
