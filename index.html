@@ -505,21 +505,37 @@
     v.premium   = (v.convValue && v.cbClose != null)
                     ? (v.cbClose - v.convValue) / v.convValue * 100 : null; // 折溢價率
 
-    // 折現率：持有至賣回日的年化報酬（台灣可轉債多為零息，故以零息折現）
-    v.ytp = null; v.ytpYears = null;
-    if (v.cbClose && b.putDate && b.putPrice) {
-      var T = (new Date(b.putDate) - VAL_DATE) / 86400000 / 365.25;
-      if (T > 0.01) { v.ytpYears = T; v.ytp = (Math.pow(b.putPrice / v.cbClose, 1 / T) - 1) * 100; }
-    }
     v.optExpiry = b.convEnd || b.maturity;   // 選擇權（轉換權）到期日
 
-    // 百元報價（CBAS 權利金）：投資人只買選擇權那一段，券商留債券部位。
-    // 有人工維護的券商報價就用真的；沒有就用 CB市價 − 債底 估算並標示。
-    var real = cbas[b.bondCode];
-    v.cbasReal = (typeof real === "number" && isFinite(real)) ? real : null;
-    v.cbasEst  = v.cbClose != null ? (v.cbClose - PAR_FLOOR) : null;
-    v.cbasQuote = v.cbasReal != null ? v.cbasReal : v.cbasEst;
+    // 百元報價（CBAS 權利金）：券商留債券部位，投資人只買選擇權那一段。
+    // 來自券商報價單（scripts/import_quotes.py 匯入）；沒報價的用 CB市價 − 債底 估算。
+    var qt = cbas[b.bondCode] || null;
+    v.q = qt;
+    v.cbasReal   = qt && typeof qt.premium === "number" ? qt.premium : null;
+    v.cbasEst    = v.cbClose != null ? (v.cbClose - PAR_FLOOR) : null;
+    v.cbasQuote  = v.cbasReal != null ? v.cbasReal : v.cbasEst;
     v.cbasIsReal = v.cbasReal != null;
+
+    // 折現率：券商訂價用的資金成本，只有報價單有，無法自行推算。
+    // 注意與下面的 ytp（持有至賣回的年化報酬）是完全不同的東西。
+    v.discRate = qt && typeof qt.discRate === "number" ? qt.discRate : null;
+
+    // 依報價單註九：實際權利金(一張) = (佰元報價 + (CB買進成交價 − 100)) × 1000
+    v.premiumCash = (v.cbasReal != null && v.cbClose != null)
+      ? (v.cbasReal + (v.cbClose - PAR_FLOOR)) * 1000 : null;
+
+    // 賣回條件：bonds.json 有 128 檔是空的，其中 40 檔可由券商報價單補回
+    v.putDate  = b.putDate || (qt && qt.putDate) || "";
+    v.putPrice = (b.putPrice != null && b.putPrice > 0) ? b.putPrice
+               : (qt && typeof qt.putPrice === "number" && qt.putPrice > 0 ? qt.putPrice : null);
+    v.putFromQuote = !!(v.putDate && !b.putDate);
+
+    // 賣回殖利率改用補齊後的賣回條件重算
+    v.ytp = null; v.ytpYears = null;
+    if (v.cbClose && v.putDate && v.putPrice) {
+      var T2 = (new Date(v.putDate) - VAL_DATE) / 86400000 / 365.25;
+      if (T2 > 0.01) { v.ytpYears = T2; v.ytp = (Math.pow(v.putPrice / v.cbClose, 1 / T2) - 1) * 100; }
+    }
     return v;
   }
 
@@ -557,7 +573,8 @@
         convValSort:  (v && v.convValue  != null) ? v.convValue  : -Infinity,
         premiumSort:  (v && v.premium    != null) ? v.premium    :  Infinity,
         ytpSort:      (v && v.ytp        != null) ? v.ytp        : -Infinity,
-        cbasSort:     (v && v.cbasQuote   != null) ? v.cbasQuote   : -Infinity
+        cbasSort:     (v && v.cbasQuote   != null) ? v.cbasQuote   : -Infinity,
+        discSort:     (v && v.discRate    != null) ? v.discRate    : -Infinity
       };
     });
   }
@@ -583,7 +600,7 @@
       if (sortKey === "putDate") { av = x.b.putDate || ""; bv = y.b.putDate || ""; return av < bv ? -sortDir : av > bv ? sortDir : 0; }
       var M = {
         issueAmt: "b.issueAmt", ttmYoY: "ttmYoY", streak: "streakSort",
-        cbClose: "cbCloseSort", cbMarket: "cbCloseSort", cbasQuote: "cbasSort", stockPrice: "stockSort", convPrice: "convSort",
+        cbClose: "cbCloseSort", cbMarket: "cbCloseSort", cbasQuote: "cbasSort", discRate: "discSort", stockPrice: "stockSort", convPrice: "convSort",
         convValue: "convValSort", premium: "premiumSort", ytp: "ytpSort"
       };
       var key = M[sortKey] || "streakSort";
@@ -608,7 +625,7 @@
       { k: "stockPrice", t: "現股市價", n: 1 },
       { k: "convPrice", t: "轉換價", n: 1 }, { k: "convValue", t: "轉換價值", n: 1 },
       { k: "premium", t: "折溢價", n: 1 }, { t: "轉換率", n: 1 },
-      { k: "putDate", t: "賣回日 / 賣回價", n: 1 }, { k: "ytp", t: "折現率", n: 1 }
+      { k: "putDate", t: "賣回日 / 賣回價", n: 1 }, { k: "discRate", t: "折現率", n: 1 }
     ]
   };
 
@@ -668,8 +685,13 @@
       '<td class="num">' + (v ? num(v.convValue) : '<span class="dash">—</span>') + '</td>' +
       '<td class="num">' + premiumCell(v) + '</td>' +
       '<td class="num">' + (v && v.convRatio ? Math.round(v.convRatio).toLocaleString() + ' 股' : '<span class="dash">—</span>') + '</td>' +
-      '<td class="num">' + (b.putDate ? esc(b.putDate) + '<div class="sub2">' + (b.putPrice != null ? b.putPrice.toFixed(2) : "—") + '</div>' : '<span class="dash">—</span>') + '</td>' +
-      '<td class="num ' + (v && v.ytp != null && v.ytp > 0 ? "disc" : "") + '">' + (v && v.ytp != null ? num(v.ytp, 2, "%") : '<span class="dash">—</span>') + '</td></tr>';
+      '<td class="num">' + (v && v.putDate
+          ? esc(v.putDate) + '<div class="sub2">' + (v.putPrice != null ? v.putPrice.toFixed(2) : "—") +
+            (v.putFromQuote ? '　報價單' : '') + '</div>'
+          : '<span class="dash">—</span>') + '</td>' +
+      '<td class="num">' + (v && v.discRate != null
+          ? num(v.discRate, 2, "%") + '<div class="sub2">券商</div>'
+          : '<span class="dash">—</span><div class="sub2">無報價</div>') + '</td></tr>';
   }
 
   function render() {
@@ -829,9 +851,14 @@
           (v.cbasQuote != null
             ? '<span class="' + (v.cbasIsReal ? "disc" : "") + '">' + num(v.cbasQuote) + '</span>' +
               '<div class="sub2">' + (v.cbasIsReal
-                ? '券商報價' + (cbasMeta.asOf ? '　' + esc(cbasMeta.asOf) : '')
-                : '估算：CB市價 ' + num(v.cbClose) + ' − 債底 ' + PAR_FLOOR) + '</div>'
+                ? esc(cbasMeta.source || "券商報價") + (cbasMeta.asOf ? '　' + esc(cbasMeta.asOf) : '')
+                : '估算：CB市價 ' + num(v.cbClose) + ' − 債底 ' + PAR_FLOOR + '（非券商報價）') + '</div>'
             : pxDash) + '</dd></div>' +
+        '<div><dt>實際權利金（一張）</dt><dd>' +
+          (v.premiumCash != null
+            ? Math.round(v.premiumCash).toLocaleString() + ' 元' +
+              '<div class="sub2">(' + num(v.cbasReal) + ' + (' + num(v.cbClose) + ' − 100)) × 1000</div>'
+            : '<span class="dash">—</span><span class="sub2"> ' + (v.cbasIsReal ? "需 CB 成交價" : "無券商報價") + '</span>') + '</dd></div>' +
         '<div><dt>現股市價</dt><dd>' + (v.stockPrice != null ? num(v.stockPrice) + ' 元' : '<span class="dash">—</span>') +
           (v.stockDate ? '<div class="sub2">' + (v.stale ? "⚠ " : "") + esc(v.stockDate) + (v.stale ? "（早於 CB 行情日）" : "") + '</div>' : "") + '</dd></div>' +
         '<div><dt>轉換價格</dt><dd>' + (v.convPrice != null ? num(v.convPrice) + ' 元' : '<span class="dash">—</span>') +
@@ -840,11 +867,16 @@
         '<div><dt>轉換價值</dt><dd>' + (v.convValue != null ? num(v.convValue) : '<span class="dash">—</span>') + '</dd></div>' +
         '<div><dt>折溢價</dt><dd>' + (v.premium != null ? premiumCell(v) : pxDash) + '</dd></div>' +
         '<div><dt>轉換率（每張可轉股數）</dt><dd>' + (v.convRatio ? Math.round(v.convRatio).toLocaleString() + ' 股' : '<span class="dash">—</span>') + '</dd></div>' +
-        '<div><dt>賣回日</dt><dd>' + (b.putDate || '<span class="dash">—</span>') + '</dd></div>' +
-        '<div><dt>賣回價</dt><dd>' + (b.putPrice != null ? b.putPrice.toFixed(2) : '<span class="dash">—</span>') + '</dd></div>' +
-        '<div><dt>折現率（至賣回日年化）</dt><dd class="' + (v.ytp != null && v.ytp > 0 ? "disc" : "") + '">' +
-          (v.ytp != null ? num(v.ytp, 2, "%") + (v.ytpYears ? '<div class="sub2">剩餘 ' + v.ytpYears.toFixed(2) + ' 年</div>' : "")
-           : (b.putDate ? pxDash : '<span class="dash">—</span><span class="sub2"> 無賣回權</span>')) + '</dd></div>' +
+        '<div><dt>賣回日</dt><dd>' + (v.putDate ? esc(v.putDate) +
+          (v.putFromQuote ? '<div class="sub2">取自券商報價單</div>' : '') : '<span class="dash">—</span>') + '</dd></div>' +
+        '<div><dt>賣回價</dt><dd>' + (v.putPrice != null ? v.putPrice.toFixed(2) : '<span class="dash">—</span>') + '</dd></div>' +
+        '<div><dt>折現率（C）</dt><dd>' +
+          (v.discRate != null
+            ? num(v.discRate, 2, "%") + '<div class="sub2">券商訂價用資金成本</div>'
+            : '<span class="dash">—</span><span class="sub2"> 僅券商報價單提供</span>') + '</dd></div>' +
+        '<div><dt>賣回殖利率（自行試算）</dt><dd class="' + (v.ytp != null && v.ytp > 0 ? "disc" : "") + '">' +
+          (v.ytp != null ? num(v.ytp, 2, "%") + (v.ytpYears ? '<div class="sub2">以現價持有至賣回，剩餘 ' + v.ytpYears.toFixed(2) + ' 年</div>' : "")
+           : (v.putDate ? pxDash : '<span class="dash">—</span><span class="sub2"> 無賣回權</span>')) + '</dd></div>' +
         '<div><dt>選擇權到期日</dt><dd>' + esc(v.optExpiry || "—") + '<div class="sub2">轉換權迄日</div></dd></div>' +
         '<div><dt>票面利率</dt><dd>' + (b.couponRate || 0).toFixed(3) + '%</dd></div>' +
       '</dl>' +

@@ -10,7 +10,7 @@
 - `data/bonds.json` — 386 檔公開發行可轉債（櫃買中心 OpenAPI `bond_ISSBD5_data`，已排除私募）
 - `data/monthly_revenue.json` — 上市＋上櫃 1,857 家公司近 12 個月營收，含去年同月值（公開資訊觀測站 `t21sc03` 月報表）
 - `data/pricing.json` — CB 百元價、現股收盤、現行轉換價（櫃買每日行情 CSV＋MOPS 轉換價月報＋兩市日收盤）
-- `data/cbas_quotes.json` — CBAS 權利金報價，人工維護（無公開來源，腳本不會覆寫）
+- `data/cbas_quotes.json` — CBAS 權利金報價，由 `scripts/import_quotes.py` 從券商 .xlsx 報價單匯入（無公開來源）
 
 ## 兩種檢視
 

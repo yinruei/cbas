@@ -11,7 +11,8 @@
 - `data/bonds.json` — 可轉債清單（約 389 筆）。
 - `data/monthly_revenue.json` — 上市＋上櫃約 1,857 家公司的月營收序列。
 - `data/pricing.json` — CB 百元價、現股收盤、現行轉換價（評價用）。
-- `data/cbas_quotes.json` — **人工維護**的 CBAS 權利金報價，不由腳本覆寫。
+- `data/cbas_quotes.json` — CBAS 權利金報價，由 `scripts/import_quotes.py` 從券商報價單匯入。
+- `scripts/import_quotes.py` — 讀券商 .xlsx 報價單產生上檔（需 `pip install openpyxl`）。
 - `scripts/update-pricing.ps1` — 重抓 pricing.json。
 - `scripts/update-data.ps1` — 重抓前兩檔。Windows PowerShell 5.1 可跑；
   **此檔必須保持 UTF-8 with BOM**（PS 5.1 讀無 BOM 檔會當 ANSI，中文字串literal 會壞）。
@@ -69,12 +70,16 @@
   用詞刻意避免「加速/減速」——衰退趨緩時 momentum 為正，「加速」會被誤讀成加速成長。
 - 評級：strong（成長中且連增≥6月）/ steady（≥65%月份正成長）/ growing / fading / declining / nodata。
 
-### cbas_quotes.json ← 人工維護（無公開來源）
-- CBAS（可轉債資產交換）權利金由各券商自行報價，**沒有公開行情可抓**。
-  櫃買唯一相關的 `tpex_dpsp_monthly_CBmcs007` 只有各券商承作餘額，不含報價。
-- 格式：`{ asOf, source, parFloor, quotes: { "<債券代號>": <百元報價> } }`
-- 有填的欄位標「券商報價」；未填者以 `CB市價 − parFloor(100)` 估算並標「估算」。
-- **此檔不會被 update-*.ps1 覆寫**，更新行情不會動到你填的報價。
+### cbas_quotes.json ← 券商報價單 .xlsx（無公開來源）
+- CBAS 權利金由各券商自行報價，**沒有公開行情可抓**。櫃買的
+  `tpex_dpsp_monthly_CBmcs007` 只有承作餘額，不含報價。
+- 來源：元大證券「轉換公司債資產交換選擇權報價表-債券部」.xlsx，工作表 `報價單`。
+  第 2 列 B 欄 = 報價日；第 4 列表頭；第 6 列起資料；第 86 列後是「註：」說明，需濾掉。
+- 欄序（0-based）：0 名稱 1 代碼 2 擔保/TCRI 3 **權利金(佰元報價)** 4 選擇權到期日
+  5 賣回價格(A) 6 賣回日期(B) 7 剩餘年期 8 **折現率(C)** 9 權利金參考價
+  10 現股參考價 11 轉換價格 12 CB轉換價值 13 CB參考價 14 溢(折)價%
+- **代號為 5~6 碼**：第 10 次以後發行者是 6 碼（岳豐十 = 622010）。只收 5 碼會漏抓。
+- 重跑 `python scripts/import_quotes.py <xlsx>` 即覆寫；update-*.ps1 不會動此檔。
 
 ## 評價公式（index.html 的 valuation()）
 
@@ -84,9 +89,14 @@
 - **轉換率 ＝ 100,000 ÷ 現行轉換價**（每張可轉股數）
 - **折現率 ＝ (賣回價 ÷ 百元價)^(1/剩餘年數) − 1**，零息假設（台灣可轉債票面利率幾乎都是 0%）
 - **選擇權到期日** 取轉換權迄日 `convEnd`
-- **百元報價（CBAS 權利金）**：券商持債券部位、投資人只買選擇權那段所付的錢。
-  有人工報價用真值，否則 `CB市價 − 債底(100)` 估算。估算不含券商資金成本與價差，
-  與實際報價會差數個百分點——只能用來排序初篩，不可當成交價。
+- **百元報價（CBAS 權利金）**：取券商報價單的「權利金(佰元報價)」；無報價者以
+  `CB市價 − 債底(100)` 估算並標「估算」，不可當成交價。
+- **實際權利金(一張)** ＝ (佰元報價 + (CB買進成交價 − 100)) × 1000（報價單註九）。
+- **折現率(C)** 是**券商訂價用的資金成本**（3%~4.75%），只有報價單有、無法自行推算。
+  **不要跟「賣回殖利率」混為一談**——後者是以現價持有至賣回的年化報酬，多為負值。
+  兩者在 UI 是分開的兩個欄位。
+- **賣回條件**：bonds.json 有 128 檔的 putDate/putPrice 是空的，其中 40 檔可由
+  券商報價單補回；UI 會標「取自券商報價單」。
 - 折溢價**不套用紅漲綠跌**：它是「貴/便宜」不是「漲/跌」，與營收漲跌共用紅綠會誤導。
   折價用強調色 `--accent-deep` 並加「折價」標籤，溢價用一般文字色。
 
@@ -104,6 +114,7 @@
 ```
 powershell -ExecutionPolicy Bypass -File scripts/update-data.ps1     # 營收＋債券清單（月更）
 powershell -ExecutionPolicy Bypass -File scripts/update-pricing.ps1  # 行情＋轉換價（日更）
+python scripts/import_quotes.py "<券商報價單.xlsx>"                   # CBAS 權利金（收到新報價單時）
 git add data && git commit -m "更新資料"
 git push origin main main:gh-pages
 ```
