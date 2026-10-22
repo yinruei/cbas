@@ -13,7 +13,9 @@
 - `data/pricing.json` — CB 百元價、現股收盤、現行轉換價（評價用）。
 - `data/cbas_quotes.json` — CBAS 權利金報價，由 `scripts/import_quotes.py` 從券商報價單匯入。
 - `scripts/import_quotes.py` — 讀券商 .xlsx 報價單產生上檔（需 `pip install openpyxl`）。
+- `data/chips.json` — 標的個股近 5 個交易日三大法人買賣超（籌碼面）。
 - `scripts/update-pricing.ps1` — 重抓 pricing.json。
+- `scripts/update-chips.ps1` — 重抓 chips.json。
 - `scripts/update-data.ps1` — 重抓前兩檔。Windows PowerShell 5.1 可跑；
   **此檔必須保持 UTF-8 with BOM**（PS 5.1 讀無 BOM 檔會當 ANSI，中文字串literal 會壞）。
 
@@ -47,6 +49,15 @@
 - **現股收盤**：TWSE `exchangeReport/STOCK_DAY_ALL`＋TPEX `tpex_mainboard_daily_close_quotes`。
   **PS 5.1 的 `ConvertFrom-Json` 有 MaxJsonLength 上限，TPEX feed 會超過而丟 ArgumentException**，
   故改用 `JavaScriptSerializer`（`MaxJsonLength = [int]::MaxValue`），回傳 Dictionary 要用 `['key']` 取值。
+
+### chips.json ← 三大法人買賣超（兩市來源不同）
+- 上市 TWSE：`https://www.twse.com.tw/rwd/zh/fund/T86?date=YYYYMMDD&selectType=ALL&response=json`
+  （OpenAPI 的 `/v1/fund/T86` 回 HTML 不可用）。欄位用**中文表頭名稱**對位，不要用索引。
+- 上櫃 TPEX：`https://www.tpex.org.tw/www/zh-tw/insti/dailyTrade?type=Daily&sect=AL&date=YYYY/MM/DD&response=json`
+  `tables[0].fields` 的「買進/賣出/買賣超股數」重複 7 組，**只能靠位置**：
+  4=外資(不含自營)、13=投信、22=自營合計、23=三大法人合計。
+- 單位是**股**，UI 顯示時 ÷1000 換成張。非交易日回空集合，腳本自動往前找滿 5 天。
+- 只輸出 bonds.json 裡有的標的個股（約 307 檔）。
 
 ## 已知資料陷阱（都處理過，改code前先讀）
 
@@ -102,6 +113,18 @@
 - 折溢價**不套用紅漲綠跌**：它是「貴/便宜」不是「漲/跌」，與營收漲跌共用紅綠會誤導。
   折價用強調色 `--accent-deep` 並加「折價」標籤，溢價用一般文字色。
 
+## 散佈圖（折價 × 成長 × 籌碼）
+
+評價檢視上方的散佈圖，把原本分散在兩個檢視的資訊疊在一起：
+x=折溢價（左為折價）、y=滾動 12 月年增、點色=籌碼（紅買超／綠賣超／灰無資料）、
+空心=券商未報價。左上淡藍區即三者兼具的標的。
+
+- **座標軸必須裁切**：折溢價中位 ~20%、最大 ~170%；年增最大 ~900%。
+  用 p95/p97 當上界會把折價區壓成左邊一條細縫，而那正是要看的地方。
+  現用 x→p85、y→p90，並保證負值區至少佔得到版面；超出者畫在邊界、透明度降到 .45。
+- 點色沿用紅漲綠跌，與營收欄位語意一致（紅＝正面），不是另一套配色。
+  灰色是「無資料」不是中性值。圖例以 ▲▼ 加文字說明，顏色不單獨承載意義。
+
 ## 設計決策
 
 - **紅漲綠跌**（台股慣例，與美規相反）。色塊與文字分兩組 token：
@@ -118,6 +141,7 @@
 ```
 powershell -ExecutionPolicy Bypass -File scripts/update-data.ps1     # 營收＋債券清單
 powershell -ExecutionPolicy Bypass -File scripts/update-pricing.ps1  # CB行情＋現股＋轉換價
+powershell -ExecutionPolicy Bypass -File scripts/update-chips.ps1    # 三大法人買賣超（近5日）
 python scripts/import_quotes.py "<當週券商報價單.xlsx>"               # CBAS 權利金
 git add data && git commit -m "更新資料"
 git push origin main main:gh-pages
