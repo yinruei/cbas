@@ -163,7 +163,8 @@
   /* ---------- 散佈圖 ---------- */
   .chartcard { background: var(--surface); border: 1px solid var(--rule); border-radius: 8px;
                box-shadow: var(--shadow); padding: 18px 20px 14px; margin: 0 0 14px; }
-  .chartcard header { display: flex; flex-wrap: wrap; align-items: baseline; gap: 8px 16px; margin-bottom: 4px; }
+  .chartcard header { display: flex; flex-wrap: wrap; align-items: center; gap: 8px 16px; margin-bottom: 4px; }
+  .chipseg button { padding: 6px 11px; min-height: 32px; font-size: 12px; }
   .chartcard h2 { font-family: "Noto Serif TC", Georgia, serif; font-size: 17px; margin: 0; font-weight: 700; }
   .chartcard .hint { font-size: 12px; color: var(--ink-muted); }
   .chartwrap { position: relative; }
@@ -326,8 +327,13 @@
     <header>
       <h2>折價 × 成長 × 籌碼</h2>
       <span class="hint" id="scatterCount"></span>
+      <div class="seg chipseg" role="group" aria-label="籌碼統計區間" style="margin-left:auto">
+        <button type="button" data-win="5" aria-pressed="true">近 5 日</button>
+        <button type="button" data-win="10" aria-pressed="false">近 10 日</button>
+        <button type="button" data-win="20" aria-pressed="false">近 20 日</button>
+      </div>
     </header>
-    <p class="hint" style="margin:0 0 10px">越靠左越便宜、越靠上營收成長越強，左上淡藍區三者兼具。點任一點可開啟該檔明細。</p>
+    <p class="hint" style="margin:0 0 10px">越靠左越便宜、越靠上營收成長越強，左上淡藍區三者兼具。點色為上方選定區間的法人買賣超，點任一點可開啟該檔明細。</p>
     <div class="chartwrap" id="scatter"></div>
     <div class="legend-row">
       <span><svg width="13" height="13"><circle cx="6.5" cy="6.5" r="4.5" fill="var(--up)" stroke="var(--up)"></circle></svg>▲ 法人買超</span>
@@ -372,7 +378,7 @@
   var pricing = {}, priceAsOf = {}, viewMode = "rev", pricingLoaded = false;
   // CBAS 權利金報價：券商各自報價、無公開行情，由 data/cbas_quotes.json 人工維護
   var cbas = {}, cbasMeta = {}, PAR_FLOOR = 100;
-  var chips = {}, chipsMeta = {}, CHIP_SCALE = 1;
+  var chips = {}, chipsMeta = {}, CHIP_SCALE = 1, chipWin = 5;   // 籌碼區間：5/10/20 日
   var VAL_DATE = new Date(TODAY);   // 評價基準日，載入後改為行情日
   var filters = { q: "", guar: "", grade: "", status: "" };
 
@@ -549,11 +555,14 @@
 
     v.optExpiry = b.convEnd || b.maturity;   // 選擇權（轉換權）到期日
 
-    // 籌碼：標的個股近 N 個交易日的三大法人買賣超（股）。紅買超／綠賣超，同台股慣例。
+    // 籌碼：標的個股三大法人買賣超（股）。紅買超／綠賣超，同台股慣例。
+    // 三個區間都在資料裡，chipWin 決定表格與散佈圖目前看哪一個。
     var cp = chips[b.stockCode] || null;
     v.chip = cp;
-    v.chipNet = cp ? cp.net : null;                       // 累計買賣超（股）
-    v.chipLots = cp ? cp.net / 1000 : null;               // 換算張
+    var cw = cp ? cp["w" + chipWin] : null;
+    v.chipNet = cw ? cw.net : null;                       // 該區間累計買賣超（股）
+    v.chipLots = cw ? cw.net / 1000 : null;               // 換算張
+    v.chipDays = cw ? cw.n : null;
 
     // 百元報價（CBAS 權利金）：券商留債券部位，投資人只買選擇權那一段。
     // 一律只用券商報價單的實際報價；沒報價就留空，不做估算——估算值與實際
@@ -744,7 +753,7 @@
         tip.innerHTML = '<b>' + esc(r.b.bondName) + '</b>　' + esc(r.b.stockCode) + ' ' + esc(r.b.issuer) +
           '<br><span class="k">折溢價</span> ' + fmtPct(v.premium, 2) +
           '　<span class="k">年增</span> ' + fmtPct(r.a.ttm) +
-          '<br><span class="k">籌碼 5日</span> ' + (lots == null ? "無資料"
+          '<br><span class="k">籌碼 ' + chipWin + '日</span> ' + (lots == null ? "無資料"
             : (lots > 0 ? "▲+" : lots < 0 ? "▼−" : "") + Math.abs(Math.round(lots)).toLocaleString() + " 張") +
           '<br><span class="k">百元報價</span> ' + (v.cbasQuote != null ? num(v.cbasQuote) : "券商未報價");
         tip.style.left = el.getAttribute("cx") / 760 * host.clientWidth + "px";
@@ -761,7 +770,10 @@
   function build() {
     // 籌碼長條的滿格基準：取全體絕對值的 p90，免得被少數大量標的壓扁
     var mags = [];
-    for (var k in chips) { if (chips[k] && chips[k].net != null) mags.push(Math.abs(chips[k].net)); }
+    for (var k in chips) {
+      var w = chips[k] && chips[k]["w" + chipWin];
+      if (w && w.net != null) mags.push(Math.abs(w.net));
+    }
     CHIP_SCALE = mags.length ? Math.max(1, pct(mags, 0.9)) : 1;
 
     rowsData = bonds.map(function (b) {
@@ -818,7 +830,7 @@
     render();
   }
 
-  var HEADS = {
+  function HEADS_() { return {
     rev: [
       { k: "bond", t: "債券 / 標的" }, { k: "listingDate", t: "掛牌日", n: 1 },
       { t: "擔保" }, { k: "issueAmt", t: "發行額", n: 1 },
@@ -830,13 +842,14 @@
       { k: "cbMarket", t: "CB 市價", n: 1 }, { k: "cbasQuote", t: "百元報價", n: 1 },
       { k: "stockPrice", t: "現股市價", n: 1 },
       { k: "convPrice", t: "轉換價", n: 1 }, { k: "convValue", t: "轉換價值", n: 1 },
-      { k: "premium", t: "折溢價", n: 1 }, { k: "chipNet", t: "籌碼 5日", n: 1 }, { t: "轉換率", n: 1 },
+      { k: "premium", t: "折溢價", n: 1 }, { k: "chipNet", t: "籌碼 " + chipWin + "日", n: 1 }, { t: "轉換率", n: 1 },
       { k: "putDate", t: "賣回日 / 賣回價", n: 1 }, { k: "discRate", t: "折現率", n: 1 }
     ]
-  };
+  }; }
+  function HEADS(m) { return HEADS_()[m]; }
 
   function renderHead() {
-    document.getElementById("thead").innerHTML = "<tr>" + HEADS[viewMode].map(function (h) {
+    document.getElementById("thead").innerHTML = "<tr>" + HEADS(viewMode).map(function (h) {
       return "<th" + (h.n ? ' class="num' + (h.k ? " sortable" : "") + '"' : (h.k ? ' class="sortable"' : "")) +
         (h.k ? ' data-sort="' + h.k + '"' : "") + ">" + h.t +
         (h.k ? '<span class="arrow">↕</span>' : "") + "</th>";
@@ -901,7 +914,7 @@
   function render() {
     renderHead();
     var tb = document.getElementById("rows");
-    var cols = HEADS[viewMode].length;
+    var cols = HEADS(viewMode).length;
     if (!view.length) {
       tb.innerHTML = '<tr><td colspan="' + cols + '"><div class="empty">沒有符合條件的可轉債。調整搜尋或篩選條件再試。</div></td></tr>';
     } else {
@@ -1097,14 +1110,25 @@
     var chipSect = "";
     if (cp) {
       var L2 = function (n) { return (n > 0 ? "▲+" : n < 0 ? "▼−" : "") + Math.abs(Math.round(n / 1000)).toLocaleString(); };
-      chipSect = '<div class="sect"><h3>籌碼面 · 近 ' + cp.days + ' 個交易日</h3><dl class="kv">' +
-        '<div><dt>三大法人合計</dt><dd class="' + toneClass(cp.net) + '">' + L2(cp.net) + ' 張</dd></div>' +
-        '<div><dt>外資</dt><dd class="' + toneClass(cp.fi) + '">' + L2(cp.fi) + ' 張</dd></div>' +
-        '<div><dt>投信</dt><dd class="' + toneClass(cp.it) + '">' + L2(cp.it) + ' 張</dd></div>' +
-        '<div><dt>自營商</dt><dd class="' + toneClass(cp.dl) + '">' + L2(cp.dl) + ' 張</dd></div>' +
-      '</dl><figure style="margin-top:12px">' + chipChart(cp.series, 500, 110) +
-      '<figcaption>每日三大法人買賣超（張）。紅為買超、綠為賣超，滑過柱子看單日數字。' +
-      (chipsMeta.from ? '　' + esc(chipsMeta.from) + ' ～ ' + esc(chipsMeta.asOf) : '') + '</figcaption></figure></div>';
+      var wins = (chipsMeta.windows || [5, 10, 20]);
+      var th = function (t) { return '<th class="num" style="padding:7px 8px;border-bottom:1px solid var(--rule-strong);font-size:11px;color:var(--ink-muted);font-weight:600">' + t + '</th>'; };
+      chipSect = '<div class="sect"><h3>籌碼面 · 三大法人買賣超（張）</h3>' +
+        '<div style="overflow-x:auto"><table style="width:100%;border-collapse:collapse;font-size:13px">' +
+        '<thead><tr><th style="text-align:left;padding:7px 8px;border-bottom:1px solid var(--rule-strong);font-size:11px;color:var(--ink-muted);font-weight:600">區間</th>' +
+        th('合計') + th('外資') + th('投信') + th('自營商') + '</tr></thead><tbody>' +
+        wins.map(function (w) {
+          var x = cp["w" + w]; if (!x) return "";
+          return '<tr' + (w === chipWin ? ' style="background:var(--surface-2)"' : '') + '>' +
+            '<td style="padding:7px 8px;border-bottom:1px solid var(--rule)">近 ' + w + ' 日' +
+              (x.n < w ? ' <span class="sub2">(實際 ' + x.n + ' 日)</span>' : '') + '</td>' +
+            ['net', 'fi', 'it', 'dl'].map(function (k) {
+              return '<td class="num ' + toneClass(x[k]) + '" style="padding:7px 8px;border-bottom:1px solid var(--rule)">' + L2(x[k]) + '</td>';
+            }).join('') + '</tr>';
+        }).join('') +
+        '</tbody></table></div>' +
+        '<figure style="margin-top:14px">' + chipChart(cp.series, 500, 110) +
+        '<figcaption>近 ' + cp.days + ' 個交易日每日三大法人買賣超（張）。紅為買超、綠為賣超，滑過柱子看單日數字。' +
+        (chipsMeta.from ? '　' + esc(chipsMeta.from) + ' ～ ' + esc(chipsMeta.asOf) : '') + '</figcaption></figure></div>';
     }
 
     document.getElementById("panelIn").innerHTML =
@@ -1165,6 +1189,17 @@
     // 折溢價預設由小到大（折價最多的排前面），其餘數值欄預設由大到小
     else { sortKey = k; sortDir = (k === "bond" || k === "premium") ? 1 : -1; }
     applyFilters();
+  });
+  document.querySelectorAll(".chipseg button").forEach(function (btn) {
+    btn.addEventListener("click", function () {
+      var w = +btn.dataset.win;
+      if (chipWin === w) return;
+      document.querySelectorAll(".chipseg button").forEach(function (b) { b.setAttribute("aria-pressed", "false"); });
+      btn.setAttribute("aria-pressed", "true");
+      chipWin = w;
+      build();            // 籌碼值隨區間改變，rowsData 要重算
+      applyFilters();
+    });
   });
   document.querySelectorAll(".viewseg button").forEach(function (btn) {
     btn.addEventListener("click", function () {

@@ -1,6 +1,6 @@
 ﻿# update-chips.ps1 — 抓取標的個股的籌碼面（三大法人買賣超）
 #
-#   data/chips.json   近 N 個交易日的三大法人買賣超（分外資／投信／自營商）
+#   data/chips.json   近 5/10/20 個交易日的三大法人買賣超（分外資／投信／自營商）
 #
 # 用法：
 #   powershell -ExecutionPolicy Bypass -File scripts/update-chips.ps1
@@ -20,8 +20,9 @@
 $ErrorActionPreference = 'Stop'
 [Net.ServicePointManager]::SecurityProtocol = [Net.SecurityProtocolType]::Tls12
 
-$DAYS = 5          # 近幾個交易日
-$MAXBACK = 20      # 最多往回找幾個日曆日
+$DAYS = 20         # 抓滿幾個交易日（供 5/10/20 日三個區間累計）
+$WINDOWS = @(5, 10, 20)
+$MAXBACK = 45      # 最多往回找幾個日曆日（20 交易日約需 28 天，留連假餘裕）
 
 $repo   = Split-Path -Parent $PSScriptRoot
 $outDir = Join-Path $repo 'data'
@@ -118,29 +119,36 @@ $out = [ordered]@{}
 foreach ($code in ($chips.Keys | Sort-Object)) {
   if ($want.Count -and -not $want.ContainsKey($code)) { continue }
   $e = $chips[$code]
-  $ser = @($e.days | Sort-Object { $_.d })
-  $sum = @{ fi = 0.0; it = 0.0; dl = 0.0; tot = 0.0 }
-  foreach ($d in $ser) { $sum.fi += $d.fi; $sum.it += $d.it; $sum.dl += $d.dl; $sum.tot += $d.tot }
-  $out[$code] = [ordered]@{
-    name  = $e.name
-    days  = $ser.Count
-    # 累計買賣超（股）
-    fi    = [int64]$sum.fi
-    it    = [int64]$sum.it
-    dl    = [int64]$sum.dl
-    net   = [int64]$sum.tot
-    # 每日淨額序列，給走勢圖用
-    series = @($ser | ForEach-Object { [ordered]@{ d = $_.d; net = [int64]$_.tot } })
+  $ser = @($e.days | Sort-Object { $_.d })      # 由舊到新
+  $rec = [ordered]@{ name = $e.name; days = $ser.Count }
+
+  # 三個區間各自累計：取序列尾端 N 天（不足 N 天就用全部，並記實際天數）
+  foreach ($w in $WINDOWS) {
+    $take = [Math]::Min($w, $ser.Count)
+    $slice = $ser[($ser.Count - $take)..($ser.Count - 1)]
+    $fi = 0.0; $it = 0.0; $dl = 0.0; $tot = 0.0
+    foreach ($d in $slice) { $fi += $d.fi; $it += $d.it; $dl += $d.dl; $tot += $d.tot }
+    $rec["w$w"] = [ordered]@{
+      n   = $take
+      fi  = [int64]$fi
+      it  = [int64]$it
+      dl  = [int64]$dl
+      net = [int64]$tot
+    }
   }
+  # 每日淨額序列（完整 20 日），給走勢圖用
+  $rec["series"] = @($ser | ForEach-Object { [ordered]@{ d = $_.d; net = [int64]$_.tot } })
+  $out[$code] = $rec
 }
 
 $res = [ordered]@{
-  asOf   = $dates[-1]
-  from   = $dates[0]
-  days   = $dates.Count
-  unit   = "股"
-  source = "TWSE T86 / TPEX insti dailyTrade"
-  rows   = $out
+  asOf    = $dates[-1]
+  from    = $dates[0]
+  days    = $dates.Count
+  windows = $WINDOWS
+  unit    = "股"
+  source  = "TWSE T86 / TPEX insti dailyTrade"
+  rows    = $out
 }
 $json = $res | ConvertTo-Json -Depth 8 -Compress
 $json = [regex]::Replace($json, '\\u([0-9a-fA-F]{4})', { param($m) [char][Convert]::ToInt32($m.Groups[1].Value, 16) })
@@ -150,11 +158,15 @@ Write-Host "`n=== RESULTS ==="
 Write-Host "交易日 $($dates[0]) ~ $($dates[-1])（$($dates.Count) 日）"
 Write-Host "標的個股 $($out.Count) 檔"
 Write-Host "wrote data/chips.json ($((Get-Item (Join-Path $outDir 'chips.json')).Length) bytes)"
-foreach ($c in @('2330', '6285', '2303')) {
+foreach ($c in @('6285', '2303', '2221')) {
   if ($out.Contains($c)) {
     $e = $out[$c]
-    Write-Host ("spot {0} {1,-8} {2} 日累計 三大法人 {3,12:N0} 股（外資 {4,12:N0} / 投信 {5,10:N0} / 自營 {6,10:N0}）" -f `
-      $c, $e.name, $e.days, $e.net, $e.fi, $e.it, $e.dl)
+    Write-Host ("spot {0} {1}" -f $c, $e.name)
+    foreach ($w in $WINDOWS) {
+      $x = $e["w$w"]
+      Write-Host ("     近 {0,2} 日({1,2}) 三大法人 {2,13:N0} 股  外資 {3,13:N0}  投信 {4,11:N0}  自營 {5,11:N0}" -f `
+        $w, $x.n, $x.net, $x.fi, $x.it, $x.dl)
+    }
   }
 }
 Write-Host "done."
