@@ -36,4 +36,4 @@
 
 ## 資料更新
 
-資料為靜態快照。重抓營收與債券清單：`scripts/update-data.ps1`；重抓行情與轉換價：`scripts/update-pricing.ps1`，完成後 commit 並推送 `main` 與 `gh-pages` 兩個分支。詳見 `CLAUDE.md`。
+資料為靜態快照，**每週更新一次**。三個來源：`scripts/update-data.ps1`（營收＋債券清單）、`scripts/update-pricing.ps1`（CB行情＋現股＋轉換價）、`scripts/import_quotes.py <券商報價單.xlsx>`（CBAS 權利金），完成後 commit 並推送 `main` 與 `gh-pages` 兩個分支。詳見 `CLAUDE.md`。

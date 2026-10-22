@@ -111,13 +111,20 @@
 
 ## 更新與部署流程
 
+**使用者的節奏是每週更新一次**（非每日），所以三個來源一次全跑：
+
 ```
-powershell -ExecutionPolicy Bypass -File scripts/update-data.ps1     # 營收＋債券清單（月更）
-powershell -ExecutionPolicy Bypass -File scripts/update-pricing.ps1  # 行情＋轉換價（日更）
-python scripts/import_quotes.py "<券商報價單.xlsx>"                   # CBAS 權利金（收到新報價單時）
+powershell -ExecutionPolicy Bypass -File scripts/update-data.ps1     # 營收＋債券清單
+powershell -ExecutionPolicy Bypass -File scripts/update-pricing.ps1  # CB行情＋現股＋轉換價
+python scripts/import_quotes.py "<當週券商報價單.xlsx>"               # CBAS 權利金
 git add data && git commit -m "更新資料"
 git push origin main main:gh-pages
 ```
+
+每週跑的注意事項：
+- 月營收每月 10 日後才會有上個月的新資料；其餘週次跑起來內容不變，屬正常。
+- 券商報價單是使用者自行取得的 .xlsx，路徑每週不同，要先問使用者檔案在哪。
+- 行情日期若落在週末，`update-pricing.ps1` 會自動往回找最近的交易日。
 
 Pages 由 `gh-pages` 分支自動服務（當初推 gh-pages 分支即自動啟用，無 Actions workflow）。
 **兩個分支都要推**，只推 main 網站不會更新。

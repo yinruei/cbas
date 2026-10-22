@@ -621,7 +621,7 @@
     ],
     val: [
       { k: "bond", t: "債券 / 標的" },
-      { k: "cbClose", t: "百元價", n: 1 }, { k: "cbMarket", t: "CB 市價", n: 1 }, { k: "cbasQuote", t: "百元報價", n: 1 },
+      { k: "cbMarket", t: "CB 市價", n: 1 }, { k: "cbasQuote", t: "百元報價", n: 1 },
       { k: "stockPrice", t: "現股市價", n: 1 },
       { k: "convPrice", t: "轉換價", n: 1 }, { k: "convValue", t: "轉換價值", n: 1 },
       { k: "premium", t: "折溢價", n: 1 }, { t: "轉換率", n: 1 },
@@ -670,9 +670,7 @@
     return '<tr tabindex="0" data-i="' + i + '">' + nameCell(r) +
       '<td class="num">' + (noPx
           ? '<span class="dash">—</span><div class="sub2">' + noPriceNote(v) + '</div>'
-          : num(v.cbClose) + chg) + '</td>' +
-      '<td class="num">' + (noPx ? '<span class="dash">—</span>'
-          : Math.round(v.cbMarket).toLocaleString() + '<div class="sub2">元/張</div>') + '</td>' +
+          : Math.round(v.cbMarket).toLocaleString() + '<div class="sub2">元/張　' + num(v.cbClose) + '</div>' + chg) + '</td>' +
       '<td class="num">' + (v && v.cbasQuote != null
           ? '<span class="' + (v.cbasIsReal ? "disc" : "") + '">' + num(v.cbasQuote) + '</span>' +
             '<div class="sub2">' + (v.cbasIsReal ? "券商報價" : "估算") + '</div>'
