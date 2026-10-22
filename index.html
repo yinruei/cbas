@@ -306,7 +306,7 @@
 
   <footer>
     <p><b>資料來源</b>：可轉債清單取自櫃買中心 OpenAPI <code>bond_ISSBD5_data</code>（僅公開發行，已排除私募）；月營收取自公開資訊觀測站 <code>t21sc03</code> 月報表。</p>
-    <p><b>百元報價（CBAS 權利金）</b>：可轉債資產交換中，券商留債券部位、投資人只買選擇權那一段所付的權利金。各券商自行報價、無公開行情，故由 <code>data/cbas_quotes.json</code> 人工維護：有填的標「券商報價」，未填的以 <b>CB市價 − 債底(100)</b> 估算並標「估算」。估算值不含券商的資金成本與價差，與實際報價會有數個百分點的落差，僅供排序與初篩，<b>下單前請以券商當下報價為準</b>。</p>
+    <p><b>百元報價（CBAS 權利金）</b>：可轉債資產交換中，券商留債券部位、投資人只買選擇權那一段所付的權利金。各券商自行報價、無公開行情，資料由 <code>scripts/import_quotes.py</code> 從券商報價單匯入。<b>只顯示券商實際報價，未報價者留空</b>，不以市價反推估算——估算值與實際報價可差數個百分點，不足以作為交易依據。實際權利金(一張) ＝ (百元報價 ＋ (CB買進成交價 − 100)) × 1000。</p>
     <p><b>可轉債評價</b>：百元價為每 100 元面額之報價（面額 10 萬／張）；轉換價取公開資訊觀測站月報之<b>現行值</b>，389 檔中有 300 檔已因除權息或現增向下重設，用發行時轉換價會算錯。轉換價值 ＝ (100 ÷ 轉換價) × 現股市價；折溢價 ＝ (百元價 − 轉換價值) ÷ 轉換價值；折現率為持有至賣回日的年化報酬（零息假設）。折溢價不套用紅綠配色，以免與營收漲跌混淆。</p>
     <p><b>讀法</b>：紅＝成長、綠＝衰退（台股慣例），顏色一律搭配 ▲▼ 與正負號。「滾動年增」為近 12 個月營收合計相對去年同期合計的增減，用意是壓掉單月與單季的雜訊；「連續成長」為最近一段期間年增率連續為正的月數。</p>
   </footer>
@@ -508,21 +508,19 @@
     v.optExpiry = b.convEnd || b.maturity;   // 選擇權（轉換權）到期日
 
     // 百元報價（CBAS 權利金）：券商留債券部位，投資人只買選擇權那一段。
-    // 來自券商報價單（scripts/import_quotes.py 匯入）；沒報價的用 CB市價 − 債底 估算。
+    // 一律只用券商報價單的實際報價；沒報價就留空，不做估算——估算值與實際
+    // 報價可差數個百分點，拿來當交易依據會誤導。
     var qt = cbas[b.bondCode] || null;
     v.q = qt;
-    v.cbasReal   = qt && typeof qt.premium === "number" ? qt.premium : null;
-    v.cbasEst    = v.cbClose != null ? (v.cbClose - PAR_FLOOR) : null;
-    v.cbasQuote  = v.cbasReal != null ? v.cbasReal : v.cbasEst;
-    v.cbasIsReal = v.cbasReal != null;
+    v.cbasQuote = qt && typeof qt.premium === "number" ? qt.premium : null;
 
     // 折現率：券商訂價用的資金成本，只有報價單有，無法自行推算。
     // 注意與下面的 ytp（持有至賣回的年化報酬）是完全不同的東西。
     v.discRate = qt && typeof qt.discRate === "number" ? qt.discRate : null;
 
     // 依報價單註九：實際權利金(一張) = (佰元報價 + (CB買進成交價 − 100)) × 1000
-    v.premiumCash = (v.cbasReal != null && v.cbClose != null)
-      ? (v.cbasReal + (v.cbClose - PAR_FLOOR)) * 1000 : null;
+    v.premiumCash = (v.cbasQuote != null && v.cbClose != null)
+      ? (v.cbasQuote + (v.cbClose - PAR_FLOOR)) * 1000 : null;
 
     // 賣回條件：bonds.json 有 128 檔是空的，其中 40 檔可由券商報價單補回
     v.putDate  = b.putDate || (qt && qt.putDate) || "";
@@ -672,9 +670,8 @@
           ? '<span class="dash">—</span><div class="sub2">' + noPriceNote(v) + '</div>'
           : Math.round(v.cbMarket).toLocaleString() + '<div class="sub2">元/張　' + num(v.cbClose) + '</div>' + chg) + '</td>' +
       '<td class="num">' + (v && v.cbasQuote != null
-          ? '<span class="' + (v.cbasIsReal ? "disc" : "") + '">' + num(v.cbasQuote) + '</span>' +
-            '<div class="sub2">' + (v.cbasIsReal ? "券商報價" : "估算") + '</div>'
-          : '<span class="dash">—</span><div class="sub2">' + noPriceNote(v) + '</div>') + '</td>' +
+          ? '<span class="disc">' + num(v.cbasQuote) + '</span>'
+          : '<span class="dash">—</span>') + '</td>' +
       '<td class="num">' + (v ? num(v.stockPrice) : '<span class="dash">—</span>') +
         (v && v.stale ? '<div class="sub2" title="此現股收盤早於 CB 行情日，折溢價會略有偏差">⚠ ' + esc(v.stockDate) + '</div>' : "") + '</td>' +
       '<td class="num">' + (v ? num(v.convPrice) : '<span class="dash">—</span>') +
@@ -847,16 +844,15 @@
           (v.cbChange != null && v.cbChange !== 0 ? ' <span style="font-size:12px" class="' + toneClass(v.cbChange) + '">' + (v.cbChange > 0 ? "▲+" : "▼−") + Math.abs(v.cbChange).toFixed(2) + '</span>' : "")) + '</dd></div>' +
         '<div><dt>百元報價（CBAS 權利金）</dt><dd>' +
           (v.cbasQuote != null
-            ? '<span class="' + (v.cbasIsReal ? "disc" : "") + '">' + num(v.cbasQuote) + '</span>' +
-              '<div class="sub2">' + (v.cbasIsReal
-                ? esc(cbasMeta.source || "券商報價") + (cbasMeta.asOf ? '　' + esc(cbasMeta.asOf) : '')
-                : '估算：CB市價 ' + num(v.cbClose) + ' − 債底 ' + PAR_FLOOR + '（非券商報價）') + '</div>'
-            : pxDash) + '</dd></div>' +
+            ? '<span class="disc">' + num(v.cbasQuote) + '</span>' +
+              '<div class="sub2">' + esc(cbasMeta.source || "券商報價") +
+              (cbasMeta.asOf ? '　' + esc(cbasMeta.asOf) : '') + '</div>'
+            : '<span class="dash">—</span><span class="sub2"> 券商未報價</span>') + '</dd></div>' +
         '<div><dt>實際權利金（一張）</dt><dd>' +
           (v.premiumCash != null
             ? Math.round(v.premiumCash).toLocaleString() + ' 元' +
               '<div class="sub2">(' + num(v.cbasReal) + ' + (' + num(v.cbClose) + ' − 100)) × 1000</div>'
-            : '<span class="dash">—</span><span class="sub2"> ' + (v.cbasIsReal ? "需 CB 成交價" : "無券商報價") + '</span>') + '</dd></div>' +
+            : '<span class="dash">—</span><span class="sub2"> ' + (v.cbasQuote != null ? "需 CB 成交價" : "券商未報價") + '</span>') + '</dd></div>' +
         '<div><dt>現股市價</dt><dd>' + (v.stockPrice != null ? num(v.stockPrice) + ' 元' : '<span class="dash">—</span>') +
           (v.stockDate ? '<div class="sub2">' + (v.stale ? "⚠ " : "") + esc(v.stockDate) + (v.stale ? "（早於 CB 行情日）" : "") + '</div>' : "") + '</dd></div>' +
         '<div><dt>轉換價格</dt><dd>' + (v.convPrice != null ? num(v.convPrice) + ' 元' : '<span class="dash">—</span>') +
