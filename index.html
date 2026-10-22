@@ -306,6 +306,7 @@
 
   <footer>
     <p><b>資料來源</b>：可轉債清單取自櫃買中心 OpenAPI <code>bond_ISSBD5_data</code>（僅公開發行，已排除私募）；月營收取自公開資訊觀測站 <code>t21sc03</code> 月報表。</p>
+    <p><b>百元報價（CBAS 權利金）</b>：可轉債資產交換中，券商留債券部位、投資人只買選擇權那一段所付的權利金。各券商自行報價、無公開行情，故由 <code>data/cbas_quotes.json</code> 人工維護：有填的標「券商報價」，未填的以 <b>CB市價 − 債底(100)</b> 估算並標「估算」。估算值不含券商的資金成本與價差，與實際報價會有數個百分點的落差，僅供排序與初篩，<b>下單前請以券商當下報價為準</b>。</p>
     <p><b>可轉債評價</b>：百元價為每 100 元面額之報價（面額 10 萬／張）；轉換價取公開資訊觀測站月報之<b>現行值</b>，389 檔中有 300 檔已因除權息或現增向下重設，用發行時轉換價會算錯。轉換價值 ＝ (100 ÷ 轉換價) × 現股市價；折溢價 ＝ (百元價 − 轉換價值) ÷ 轉換價值；折現率為持有至賣回日的年化報酬（零息假設）。折溢價不套用紅綠配色，以免與營收漲跌混淆。</p>
     <p><b>讀法</b>：紅＝成長、綠＝衰退（台股慣例），顏色一律搭配 ▲▼ 與正負號。「滾動年增」為近 12 個月營收合計相對去年同期合計的增減，用意是壓掉單月與單季的雜訊；「連續成長」為最近一段期間年增率連續為正的月數。</p>
   </footer>
@@ -328,6 +329,8 @@
   var bonds = [], revenue = {}, rowsData = [], view = [];
   var sortKey = "listingDate", sortDir = -1;
   var pricing = {}, priceAsOf = {}, viewMode = "rev", pricingLoaded = false;
+  // CBAS 權利金報價：券商各自報價、無公開行情，由 data/cbas_quotes.json 人工維護
+  var cbas = {}, cbasMeta = {}, PAR_FLOOR = 100;
   var VAL_DATE = new Date(TODAY);   // 評價基準日，載入後改為行情日
   var filters = { q: "", guar: "", grade: "", status: "" };
 
@@ -509,6 +512,14 @@
       if (T > 0.01) { v.ytpYears = T; v.ytp = (Math.pow(b.putPrice / v.cbClose, 1 / T) - 1) * 100; }
     }
     v.optExpiry = b.convEnd || b.maturity;   // 選擇權（轉換權）到期日
+
+    // 百元報價（CBAS 權利金）：投資人只買選擇權那一段，券商留債券部位。
+    // 有人工維護的券商報價就用真的；沒有就用 CB市價 − 債底 估算並標示。
+    var real = cbas[b.bondCode];
+    v.cbasReal = (typeof real === "number" && isFinite(real)) ? real : null;
+    v.cbasEst  = v.cbClose != null ? (v.cbClose - PAR_FLOOR) : null;
+    v.cbasQuote = v.cbasReal != null ? v.cbasReal : v.cbasEst;
+    v.cbasIsReal = v.cbasReal != null;
     return v;
   }
 
@@ -545,7 +556,8 @@
         convSort:     (v && v.convPrice  != null) ? v.convPrice  : -Infinity,
         convValSort:  (v && v.convValue  != null) ? v.convValue  : -Infinity,
         premiumSort:  (v && v.premium    != null) ? v.premium    :  Infinity,
-        ytpSort:      (v && v.ytp        != null) ? v.ytp        : -Infinity
+        ytpSort:      (v && v.ytp        != null) ? v.ytp        : -Infinity,
+        cbasSort:     (v && v.cbasQuote   != null) ? v.cbasQuote   : -Infinity
       };
     });
   }
@@ -571,7 +583,7 @@
       if (sortKey === "putDate") { av = x.b.putDate || ""; bv = y.b.putDate || ""; return av < bv ? -sortDir : av > bv ? sortDir : 0; }
       var M = {
         issueAmt: "b.issueAmt", ttmYoY: "ttmYoY", streak: "streakSort",
-        cbClose: "cbCloseSort", cbMarket: "cbCloseSort", stockPrice: "stockSort", convPrice: "convSort",
+        cbClose: "cbCloseSort", cbMarket: "cbCloseSort", cbasQuote: "cbasSort", stockPrice: "stockSort", convPrice: "convSort",
         convValue: "convValSort", premium: "premiumSort", ytp: "ytpSort"
       };
       var key = M[sortKey] || "streakSort";
@@ -592,7 +604,7 @@
     ],
     val: [
       { k: "bond", t: "債券 / 標的" },
-      { k: "cbClose", t: "百元價", n: 1 }, { k: "cbMarket", t: "CB 市價", n: 1 },
+      { k: "cbClose", t: "百元價", n: 1 }, { k: "cbMarket", t: "CB 市價", n: 1 }, { k: "cbasQuote", t: "百元報價", n: 1 },
       { k: "stockPrice", t: "現股市價", n: 1 },
       { k: "convPrice", t: "轉換價", n: 1 }, { k: "convValue", t: "轉換價值", n: 1 },
       { k: "premium", t: "折溢價", n: 1 }, { t: "轉換率", n: 1 },
@@ -644,6 +656,10 @@
           : num(v.cbClose) + chg) + '</td>' +
       '<td class="num">' + (noPx ? '<span class="dash">—</span>'
           : Math.round(v.cbMarket).toLocaleString() + '<div class="sub2">元/張</div>') + '</td>' +
+      '<td class="num">' + (v && v.cbasQuote != null
+          ? '<span class="' + (v.cbasIsReal ? "disc" : "") + '">' + num(v.cbasQuote) + '</span>' +
+            '<div class="sub2">' + (v.cbasIsReal ? "券商報價" : "估算") + '</div>'
+          : '<span class="dash">—</span><div class="sub2">' + noPriceNote(v) + '</div>') + '</td>' +
       '<td class="num">' + (v ? num(v.stockPrice) : '<span class="dash">—</span>') +
         (v && v.stale ? '<div class="sub2" title="此現股收盤早於 CB 行情日，折溢價會略有偏差">⚠ ' + esc(v.stockDate) + '</div>' : "") + '</td>' +
       '<td class="num">' + (v ? num(v.convPrice) : '<span class="dash">—</span>') +
@@ -809,6 +825,13 @@
           (noPx ? pxDash : Math.round(v.cbMarket).toLocaleString() + ' 元') + '</dd></div>' +
         '<div><dt>百元價</dt><dd>' + (noPx ? pxDash : num(v.cbClose) +
           (v.cbChange != null && v.cbChange !== 0 ? ' <span style="font-size:12px" class="' + toneClass(v.cbChange) + '">' + (v.cbChange > 0 ? "▲+" : "▼−") + Math.abs(v.cbChange).toFixed(2) + '</span>' : "")) + '</dd></div>' +
+        '<div><dt>百元報價（CBAS 權利金）</dt><dd>' +
+          (v.cbasQuote != null
+            ? '<span class="' + (v.cbasIsReal ? "disc" : "") + '">' + num(v.cbasQuote) + '</span>' +
+              '<div class="sub2">' + (v.cbasIsReal
+                ? '券商報價' + (cbasMeta.asOf ? '　' + esc(cbasMeta.asOf) : '')
+                : '估算：CB市價 ' + num(v.cbClose) + ' − 債底 ' + PAR_FLOOR) + '</div>'
+            : pxDash) + '</dd></div>' +
         '<div><dt>現股市價</dt><dd>' + (v.stockPrice != null ? num(v.stockPrice) + ' 元' : '<span class="dash">—</span>') +
           (v.stockDate ? '<div class="sub2">' + (v.stale ? "⚠ " : "") + esc(v.stockDate) + (v.stale ? "（早於 CB 行情日）" : "") + '</div>' : "") + '</dd></div>' +
         '<div><dt>轉換價格</dt><dd>' + (v.convPrice != null ? num(v.convPrice) + ' 元' : '<span class="dash">—</span>') +
@@ -917,11 +940,13 @@
   Promise.all([
     fetch("data/bonds.json").then(function (r) { if (!r.ok) throw new Error("bonds " + r.status); return r.json(); }),
     fetch("data/monthly_revenue.json").then(function (r) { return r.ok ? r.json() : null; }).catch(function () { return null; }),
-    fetch("data/pricing.json").then(function (r) { return r.ok ? r.json() : null; }).catch(function () { return null; })
+    fetch("data/pricing.json").then(function (r) { return r.ok ? r.json() : null; }).catch(function () { return null; }),
+    fetch("data/cbas_quotes.json").then(function (r) { return r.ok ? r.json() : null; }).catch(function () { return null; })
   ]).then(function (res) {
     bonds = res[0] || [];
     revenue = res[1] || {};
-    var pr = res[2];
+    var pr = res[2], cq = res[3];
+    if (cq) { cbas = cq.quotes || {}; cbasMeta = cq; if (typeof cq.parFloor === "number") PAR_FLOOR = cq.parFloor; }
     if (pr) { pricingLoaded = true; pricing = pr.rows || {}; priceAsOf = pr.asOf || {}; if (priceAsOf.cbQuote) VAL_DATE = new Date(priceAsOf.cbQuote); }
 
     build();

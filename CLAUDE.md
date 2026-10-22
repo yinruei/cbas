@@ -11,6 +11,7 @@
 - `data/bonds.json` — 可轉債清單（約 389 筆）。
 - `data/monthly_revenue.json` — 上市＋上櫃約 1,857 家公司的月營收序列。
 - `data/pricing.json` — CB 百元價、現股收盤、現行轉換價（評價用）。
+- `data/cbas_quotes.json` — **人工維護**的 CBAS 權利金報價，不由腳本覆寫。
 - `scripts/update-pricing.ps1` — 重抓 pricing.json。
 - `scripts/update-data.ps1` — 重抓前兩檔。Windows PowerShell 5.1 可跑；
   **此檔必須保持 UTF-8 with BOM**（PS 5.1 讀無 BOM 檔會當 ANSI，中文字串literal 會壞）。
@@ -68,6 +69,13 @@
   用詞刻意避免「加速/減速」——衰退趨緩時 momentum 為正，「加速」會被誤讀成加速成長。
 - 評級：strong（成長中且連增≥6月）/ steady（≥65%月份正成長）/ growing / fading / declining / nodata。
 
+### cbas_quotes.json ← 人工維護（無公開來源）
+- CBAS（可轉債資產交換）權利金由各券商自行報價，**沒有公開行情可抓**。
+  櫃買唯一相關的 `tpex_dpsp_monthly_CBmcs007` 只有各券商承作餘額，不含報價。
+- 格式：`{ asOf, source, parFloor, quotes: { "<債券代號>": <百元報價> } }`
+- 有填的欄位標「券商報價」；未填者以 `CB市價 − parFloor(100)` 估算並標「估算」。
+- **此檔不會被 update-*.ps1 覆寫**，更新行情不會動到你填的報價。
+
 ## 評價公式（index.html 的 valuation()）
 
 - 面額 10 萬／張，報價為百元價。**CB 市價 ＝ 百元價 × 1000**
@@ -76,6 +84,9 @@
 - **轉換率 ＝ 100,000 ÷ 現行轉換價**（每張可轉股數）
 - **折現率 ＝ (賣回價 ÷ 百元價)^(1/剩餘年數) − 1**，零息假設（台灣可轉債票面利率幾乎都是 0%）
 - **選擇權到期日** 取轉換權迄日 `convEnd`
+- **百元報價（CBAS 權利金）**：券商持債券部位、投資人只買選擇權那段所付的錢。
+  有人工報價用真值，否則 `CB市價 − 債底(100)` 估算。估算不含券商資金成本與價差，
+  與實際報價會差數個百分點——只能用來排序初篩，不可當成交價。
 - 折溢價**不套用紅漲綠跌**：它是「貴/便宜」不是「漲/跌」，與營收漲跌共用紅綠會誤導。
   折價用強調色 `--accent-deep` 並加「折價」標籤，溢價用一般文字色。
 
