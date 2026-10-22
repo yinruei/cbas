@@ -202,6 +202,29 @@
   .chipbar { display: inline-flex; align-items: center; width: 56px; height: 14px; vertical-align: middle; }
   .chipcell { display: flex; align-items: center; justify-content: flex-end; gap: 7px; }
 
+  /* 可行性分級：單一色相由深到淺的序列，不借用紅綠（那是漲跌） */
+  .sgchip { display: inline-block; font-size: 12px; font-weight: 600; padding: 3px 9px;
+            border-radius: 20px; white-space: nowrap; border: 1px solid transparent; }
+  .sg-a { background: var(--accent); color: #fff; border-color: var(--accent); }
+  .sg-b { background: var(--accent-soft); color: var(--accent-deep);
+          border-color: color-mix(in srgb, var(--accent) 35%, transparent); }
+  .sg-c { background: var(--surface-2); color: var(--ink-2); border-color: var(--rule-strong); }
+  .sg-d { background: transparent; color: var(--ink-muted); border-color: var(--rule); }
+
+  /* CBAS 篩選器 */
+  .screen { background: var(--surface); border: 1px solid var(--rule); border-radius: 8px;
+            padding: 14px 18px; margin: 0 0 14px; display: none; }
+  .screen.on { display: block; }
+  .screen h3 { font-size: 11.5px; letter-spacing: .09em; text-transform: uppercase;
+               color: var(--ink-muted); font-weight: 600; margin: 0 0 12px; }
+  .screen .row { display: flex; flex-wrap: wrap; align-items: center; gap: 10px 22px; }
+  .screen label { display: inline-flex; align-items: center; gap: 8px; font-size: 13.5px; color: var(--ink-2); }
+  .screen input[type=range] { width: 130px; accent-color: var(--accent); }
+  .screen output { font-family: var(--f-mono); font-variant-numeric: tabular-nums;
+                   color: var(--ink); font-weight: 600; min-width: 46px; }
+  .screen input[type=checkbox] { width: 16px; height: 16px; accent-color: var(--accent); }
+  .screen .note { font-size: 12px; color: var(--ink-muted); margin: 10px 0 0; line-height: 1.6; }
+
   /* ---------- table ---------- */
   .tablewrap { overflow-x: auto; background: var(--surface); border: 1px solid var(--rule); border-radius: 8px; box-shadow: var(--shadow); }
   table { width: 100%; border-collapse: collapse; min-width: 1120px; }
@@ -326,9 +349,8 @@
       <button type="button" data-status="soon" aria-pressed="false">即將掛牌</button>
       <button type="button" data-status="live" aria-pressed="false">已掛牌</button>
     </div>
-    <button type="button" class="preset" id="preset" aria-pressed="false"
-            title="同時符合：折溢價為負、滾動 12 月營收年增為正、選定區間法人買超">
-      ★ 折價 ＋ 成長 ＋ 買超
+    <button type="button" class="preset" id="preset" aria-pressed="false">
+      ⚙ CBAS 篩選
     </button>
     <span class="count" id="count"></span>
   </div>
@@ -337,6 +359,28 @@
     <button type="button" data-view="rev" aria-pressed="true">營收動能</button>
     <button type="button" data-view="val" aria-pressed="false">可轉債評價</button>
   </div>
+
+  <section class="screen" id="screen">
+    <h3>CBAS 進場條件</h3>
+    <div class="row">
+      <label>CB 市價上限
+        <input type="range" id="fCb" min="105" max="160" step="5" value="120">
+        <output id="oCb">120</output>
+      </label>
+      <label>可行性（需要幾個標準差）
+        <input type="range" id="fSig" min="0.3" max="3" step="0.1" value="1">
+        <output id="oSig">1.0</output>
+      </label>
+      <label><input type="checkbox" id="fGrow" checked> 營收年增為正</label>
+      <label><input type="checkbox" id="fChip" checked> 法人買超</label>
+      <label><input type="checkbox" id="fQuote" checked> 僅限有券商報價</label>
+    </div>
+    <p class="note">
+      <b>CB 市價上限</b>決定最大損失——權利金約等於 CB 價減 100，到期歸零就是全賠。<br>
+      <b>可行性</b> ＝ 需漲幅 ÷ (年化波動率 × √剩餘年數)。數值越小代表「要走的距離」相對「這檔股票走得動的幅度」越短。
+      ≤0.5 相對容易、≤1.0 合理、>1.5 機率極低。波動率取 120／240 天大值。
+    </p>
+  </section>
 
   <section class="chartcard" id="chartcard" hidden>
     <header>
@@ -395,7 +439,8 @@
   var cbas = {}, cbasMeta = {}, PAR_FLOOR = 100;
   var chips = {}, chipsMeta = {}, CHIP_SCALE = 1, chipWin = 5;   // 籌碼區間：5/10/20 日
   var VAL_DATE = new Date(TODAY);   // 評價基準日，載入後改為行情日
-  var filters = { q: "", guar: "", grade: "", status: "", preset: false };
+  var filters = { q: "", guar: "", grade: "", status: "", preset: false,
+                  cbMax: 120, sigMax: 1.0, grow: true, chip: true, quoteOnly: true };
 
   var GRADES = {
     strong:    { label: "強勁持續", tone: "up",   icon: "▲" },
@@ -600,6 +645,37 @@
                : (qt && typeof qt.putPrice === "number" && qt.putPrice > 0 ? qt.putPrice : null);
     v.putFromQuote = !!(v.putDate && !b.putDate);
 
+    // ---- CBAS 可行性：要漲多少才回本，相對這檔股票走得動的幅度 ----
+    // 履約價 K = 賣回價 − 100 × 折現率 × 剩餘天數/365      （報價單註七）
+    // 總成本   = 佰元報價 + (CB市價 − 100)                 （報價單註九）
+    // 兩平CB價 = K + 總成本 → 換回股價 → 需漲幅
+    // 標準差   = 需漲幅 ÷ (年化波動率 × √剩餘年數)
+    //            波動率取 120/240 天「大值」：若該股近期確實走出過這種波動，
+    //            視為它有能力再走一次。注意這是寬鬆端——分母越大 SD 越小、
+    //            標的看起來越容易達成。兩個窗口差距大時代表近期有事件，UI 會並列顯示。
+    v.vol120 = qt && qt.vol120 != null ? qt.vol120 : null;
+    v.vol240 = qt && qt.vol240 != null ? qt.vol240 : null;
+    v.vol = (v.vol120 != null || v.vol240 != null)
+      ? Math.max(v.vol120 != null ? v.vol120 : 0, v.vol240 != null ? v.vol240 : 0) : null;
+    v.outPct = qt && qt.outPct != null ? qt.outPct : null;
+    v.cost = (v.cbasQuote != null && v.cbClose != null) ? v.cbasQuote + (v.cbClose - 100) : null;
+    v.strike = null; v.breakEven = null; v.needPct = null; v.sigma = null; v.optYears = null;
+
+    var pd = (qt && qt.putDate) || b.putDate || "";
+    var pp = (qt && qt.putPrice) || ((b.putPrice != null && b.putPrice > 0) ? b.putPrice : null);
+    if (pd && pp != null && v.discRate != null && v.cost != null) {
+      var dd = (new Date(pd) - VAL_DATE) / 86400000;
+      if (dd > 0) {
+        v.optYears = dd / 365.25;
+        v.strike = pp - 100 * (v.discRate / 100) * (dd / 365);
+        v.breakEven = v.strike + v.cost;
+        if (v.convPrice && v.stockPrice) {
+          v.needPct = ((v.breakEven / 100 * v.convPrice) / v.stockPrice - 1) * 100;
+          if (v.vol) v.sigma = v.needPct / (v.vol * Math.sqrt(v.optYears));
+        }
+      }
+    }
+
     // 賣回殖利率改用補齊後的賣回條件重算
     v.ytp = null; v.ytpYears = null;
     if (v.cbClose && v.putDate && v.putPrice) {
@@ -612,6 +688,25 @@
   // 無百元價時的原因，供欄位旁註記
   function noPriceNote(v) {
     return v && v.notListed ? "尚未掛牌" : "當日無成交";
+  }
+
+  // 可行性分級：需要幾個標準差才回本
+  var SIGMA_BANDS = [
+    { max: 0.5, label: "相對容易", cls: "sg-a" },
+    { max: 1.0, label: "合理",     cls: "sg-b" },
+    { max: 1.5, label: "偏難",     cls: "sg-c" },
+    { max: Infinity, label: "機率極低", cls: "sg-d" }
+  ];
+  function sigmaBand(x) {
+    for (var i = 0; i < SIGMA_BANDS.length; i++) if (x <= SIGMA_BANDS[i].max) return SIGMA_BANDS[i];
+    return SIGMA_BANDS[3];
+  }
+  function sigmaCell(v) {
+    if (!v || v.sigma == null) return '<span class="dash">—</span>';
+    var g = sigmaBand(v.sigma);
+    return '<span class="sgchip ' + g.cls + '" title="需漲 ' + v.needPct.toFixed(0) +
+      '%　波動率 ' + v.vol.toFixed(0) + '%　剩餘 ' + v.optYears.toFixed(1) + ' 年">' +
+      v.sigma.toFixed(2) + '　' + g.label + '</span>';
   }
 
   function premiumCell(v) {
@@ -807,7 +902,8 @@
         ytpSort:      (v && v.ytp        != null) ? v.ytp        : -Infinity,
         cbasSort:     (v && v.cbasQuote   != null) ? v.cbasQuote   : -Infinity,
         discSort:     (v && v.discRate    != null) ? v.discRate    : -Infinity,
-        chipSort:     (v && v.chipNet     != null) ? v.chipNet     : -Infinity
+        chipSort:     (v && v.chipNet     != null) ? v.chipNet     : -Infinity,
+        sigSort:      (v && v.sigma       != null) ? v.sigma       :  Infinity
       };
     });
   }
@@ -819,11 +915,15 @@
       if (filters.grade && r.a.grade !== filters.grade) return false;
       if (filters.status === "soon" && !r.soon) return false;
       if (filters.status === "live" && r.soon) return false;
-      // 快捷篩選：折價、營收成長、法人買超三者同時成立（籌碼依目前選定的區間）
+      // CBAS 進場條件：風險上限（CB價）→ 可行性（標準差）→ 基本面 → 籌碼
       if (filters.preset) {
-        if (!r.v || r.v.premium == null || r.v.premium >= 0) return false;
-        if (!r.a || r.a.ttm == null || r.a.ttm <= 0) return false;
-        if (r.v.chipNet == null || r.v.chipNet <= 0) return false;
+        var v = r.v;
+        if (!v) return false;
+        if (filters.quoteOnly && v.cbasQuote == null) return false;
+        if (v.cbClose == null || v.cbClose > filters.cbMax) return false;
+        if (v.sigma == null || v.sigma > filters.sigMax) return false;
+        if (filters.grow && (!r.a || r.a.ttm == null || r.a.ttm <= 0)) return false;
+        if (filters.chip && (v.chipNet == null || v.chipNet <= 0)) return false;
       }
       if (q) {
         var hay = (r.b.stockCode + " " + r.b.issuer + " " + r.b.bondName + " " + r.b.bondCode + " " + (r.a.industry || "")).toLowerCase();
@@ -839,7 +939,7 @@
       if (sortKey === "putDate") { av = x.b.putDate || ""; bv = y.b.putDate || ""; return av < bv ? -sortDir : av > bv ? sortDir : 0; }
       var M = {
         issueAmt: "b.issueAmt", ttmYoY: "ttmYoY", streak: "streakSort",
-        cbClose: "cbCloseSort", cbMarket: "cbCloseSort", cbasQuote: "cbasSort", discRate: "discSort", chipNet: "chipSort", stockPrice: "stockSort", convPrice: "convSort",
+        cbClose: "cbCloseSort", cbMarket: "cbCloseSort", cbasQuote: "cbasSort", discRate: "discSort", chipNet: "chipSort", sigma: "sigSort", stockPrice: "stockSort", convPrice: "convSort",
         convValue: "convValSort", premium: "premiumSort", ytp: "ytpSort"
       };
       var key = M[sortKey] || "streakSort";
@@ -863,7 +963,8 @@
       { k: "cbMarket", t: "CB 市價", n: 1 }, { k: "cbasQuote", t: "百元報價", n: 1 },
       { k: "stockPrice", t: "現股市價", n: 1 },
       { k: "convPrice", t: "轉換價", n: 1 }, { k: "convValue", t: "轉換價值", n: 1 },
-      { k: "premium", t: "折溢價", n: 1 }, { k: "chipNet", t: "籌碼 " + chipWin + "日", n: 1 }, { t: "轉換率", n: 1 },
+      { k: "premium", t: "折溢價", n: 1 }, { k: "sigma", t: "可行性", n: 1 },
+      { k: "chipNet", t: "籌碼 " + chipWin + "日", n: 1 }, { t: "轉換率", n: 1 },
       { k: "putDate", t: "賣回日 / 賣回價", n: 1 }, { k: "discRate", t: "折現率", n: 1 }
     ]
   }; }
@@ -921,6 +1022,7 @@
          : v && v.convSrc === "issue" ? '<div class="sub2">發行時</div>' : "") + '</td>' +
       '<td class="num">' + (v ? num(v.convValue) : '<span class="dash">—</span>') + '</td>' +
       '<td class="num">' + premiumCell(v) + '</td>' +
+      '<td class="num">' + sigmaCell(v) + '</td>' +
       '<td class="num">' + chipCell(v) + '</td>' +
       '<td class="num">' + (v && v.convRatio ? Math.round(v.convRatio).toLocaleString() + ' 股' : '<span class="dash">—</span>') + '</td>' +
       '<td class="num">' + (v && v.putDate
@@ -1218,15 +1320,33 @@
     var on = this.getAttribute("aria-pressed") !== "true";
     this.setAttribute("aria-pressed", on ? "true" : "false");
     filters.preset = on;
+    document.getElementById("screen").classList.toggle("on", on);
     if (on && viewMode !== "val") {       // 這組條件只在評價檢視看得到，順手切過去
       viewMode = "val";
       document.querySelectorAll(".viewseg button").forEach(function (b) {
         b.setAttribute("aria-pressed", b.dataset.view === "val" ? "true" : "false");
       });
-      sortKey = "premium"; sortDir = 1;
+      sortKey = "sigma"; sortDir = 1;     // 由最可行的排前面
     }
     applyFilters();
   });
+  (function wireScreen() {
+    var cb = document.getElementById("fCb"), sg = document.getElementById("fSig");
+    function sync() {
+      filters.cbMax = +cb.value; filters.sigMax = +sg.value;
+      document.getElementById("oCb").textContent = cb.value;
+      document.getElementById("oSig").textContent = (+sg.value).toFixed(1);
+      if (filters.preset) applyFilters();
+    }
+    [cb, sg].forEach(function (el) { el.addEventListener("input", sync); });
+    [["fGrow", "grow"], ["fChip", "chip"], ["fQuote", "quoteOnly"]].forEach(function (pair) {
+      document.getElementById(pair[0]).addEventListener("change", function () {
+        filters[pair[1]] = this.checked;
+        if (filters.preset) applyFilters();
+      });
+    });
+    sync();
+  })();
   document.querySelectorAll(".chipseg button").forEach(function (btn) {
     btn.addEventListener("click", function () {
       var w = +btn.dataset.win;

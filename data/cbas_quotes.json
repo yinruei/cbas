@@ -17,6 +17,10 @@
    "stockRef": 856.0,
    "cbRef": 149.95,
    "premiumPct": 24.0766,
+   "vol120": 62.61,
+   "vol240": 55.77,
+   "outPct": 100.0,
+   "industry": "電機機械",
    "guarantor": "4"
   },
   "17172": {
@@ -30,6 +34,10 @@
    "stockRef": 71.4,
    "cbRef": 125.0,
    "premiumPct": 32.528,
+   "vol120": 57.37,
+   "vol240": 61.42,
+   "outPct": 100.0,
+   "industry": "化學工業",
    "guarantor": "3"
   },
   "17813": {
@@ -43,6 +51,10 @@
    "stockRef": 9.97,
    "cbRef": 100.9,
    "premiumPct": 82.1665,
+   "vol120": 29.99,
+   "vol240": 28.81,
+   "outPct": 100.0,
+   "industry": "生技醫療",
    "guarantor": "華南銀"
   },
   "22331": {
@@ -56,6 +68,10 @@
    "stockRef": 151.0,
    "cbRef": 103.05,
    "premiumPct": 67.8145,
+   "vol120": 71.53,
+   "vol240": 64.45,
+   "outPct": 99.98,
+   "industry": "汽車工業",
    "guarantor": "4"
   },
   "22471": {
@@ -69,6 +85,10 @@
    "stockRef": 222.0,
    "cbRef": 102.2,
    "premiumPct": 25.7244,
+   "vol120": 20.81,
+   "vol240": 21.27,
+   "outPct": 100.0,
+   "industry": "汽車工業",
    "guarantor": "4"
   },
   "22472": {
@@ -82,6 +102,10 @@
    "stockRef": 222.0,
    "cbRef": 102.9,
    "premiumPct": 22.553,
+   "vol120": 20.81,
+   "vol240": 21.27,
+   "outPct": 99.94,
+   "industry": "汽車工業",
    "guarantor": "4"
   },
   "23031": {
@@ -95,6 +119,10 @@
    "stockRef": 129.0,
    "cbRef": 116.3,
    "premiumPct": 31.6264,
+   "vol120": 77.13,
+   "vol240": 64.3,
+   "outPct": 100.0,
+   "industry": "電子–半導體",
    "guarantor": "3"
   },
   "23032": {
@@ -108,6 +136,10 @@
    "stockRef": 129.0,
    "cbRef": 129.0,
    "premiumPct": 30.7,
+   "vol120": 77.13,
+   "vol240": 64.3,
+   "outPct": 100.0,
+   "industry": "電子–半導體",
    "guarantor": "3"
   },
   "24394": {
@@ -121,6 +153,10 @@
    "stockRef": 78.8,
    "cbRef": 103.0,
    "premiumPct": 59.9898,
+   "vol120": 23.74,
+   "vol240": 27.09,
+   "outPct": 100.0,
+   "industry": "電子–通信網路",
    "guarantor": "3"
   },
   "24395": {
@@ -134,6 +170,10 @@
    "stockRef": 78.8,
    "cbRef": 104.0,
    "premiumPct": 56.9239,
+   "vol120": 23.74,
+   "vol240": 27.09,
+   "outPct": 100.0,
+   "industry": "電子–通信網路",
    "guarantor": "3"
   },
   "24762": {
@@ -147,6 +187,10 @@
    "stockRef": 121.5,
    "cbRef": 186.0,
    "premiumPct": -0.8,
+   "vol120": 46.6,
+   "vol240": 43.27,
+   "outPct": 26.32,
+   "industry": "電子–電子零組件",
    "guarantor": "4"
   },
   "25283": {
@@ -160,6 +204,10 @@
    "stockRef": 18.05,
    "cbRef": 102.0,
    "premiumPct": 97.2188,
+   "vol120": 30.52,
+   "vol240": 28.3,
+   "outPct": 100.0,
+   "industry": "建材營建",
    "guarantor": "元大銀"
   },
   "27271": {
@@ -173,6 +221,10 @@
    "stockRef": 246.0,
    "cbRef": 113.9,
    "premiumPct": 1.0284,
+   "vol120": 17.5,
+   "vol240": 17.27,
+   "outPct": 99.98,
+   "industry": "觀光餐旅",
    "guarantor": "4"
   },
   "27531": {
@@ -186,6 +238,10 @@
    "stockRef": 183.0,
    "cbRef": 105.0,
    "premiumPct": 8.9016,
+   "vol120": 13.41,
+   "vol240": 19.32,
+   "outPct": 100.0,
+   "industry": "觀光餐旅",
    "guarantor": "4"
   },
   "27532": {
@@ -199,6 +255,10 @@
    "stockRef": 183.0,
    "cbRef": 109.95,
    "premiumPct": 12.894,
+   "vol120": 13.41,
+   "vol240": 19.32,
+   "outPct": 100.0,
+   "industry": "觀光餐旅",
    "guarantor": "4"
   },
   "30062": {
@@ -212,6 +272,10 @@
    "stockRef": 233.5,
    "cbRef": 113.25,
    "premiumPct": 49.3833,
+   "vol120": 81.17,
+   "vol240": 83.59,
+   "outPct": 100.0,
+   "industry": "電子–半導體",
    "guarantor": "富邦銀"
   },
   "30134": {
@@ -225,6 +289,10 @@
    "stockRef": 92.6,
    "cbRef": 113.7,
    "premiumPct": 69.0766,
+   "vol120": 53.94,
+   "vol240": 51.27,
+   "outPct": 100.0,
+   "industry": "電子–電腦及週邊設備",
    "guarantor": "中信銀/兆豐銀"
   },
   "30454": {
@@ -238,6 +306,10 @@
    "stockRef": 131.0,
    "cbRef": 114.1,
    "premiumPct": -1.1424,
+   "vol120": 16.6,
+   "vol240": 14.67,
+   "outPct": 88.76,
+   "industry": "電子–通信網路",
    "guarantor": "2"
   },
   "30455": {
@@ -251,6 +323,10 @@
    "stockRef": 131.0,
    "cbRef": 122.0,
    "premiumPct": -0.4443,
+   "vol120": 16.6,
+   "vol240": 14.67,
+   "outPct": 89.26,
+   "industry": "電子–通信網路",
    "guarantor": "2"
   },
   "30811": {
@@ -264,6 +340,10 @@
    "stockRef": 2550.0,
    "cbRef": 180.0,
    "premiumPct": 24.0871,
+   "vol120": 93.76,
+   "vol240": 89.37,
+   "outPct": 100.0,
+   "industry": "電子–通信網路",
    "guarantor": "元大銀"
   },
   "32609": {
@@ -277,6 +357,10 @@
    "stockRef": 336.0,
    "cbRef": 112.2,
    "premiumPct": 36.9775,
+   "vol120": 54.98,
+   "vol240": 69.97,
+   "outPct": 100.0,
+   "industry": "電子–半導體",
    "guarantor": "4"
   },
   "32943": {
@@ -290,6 +374,10 @@
    "stockRef": 29.85,
    "cbRef": 121.0,
    "premiumPct": 69.4405,
+   "vol120": 50.82,
+   "vol240": 48.32,
+   "outPct": 100.0,
+   "industry": "電子–電子零組件",
    "guarantor": "國泰世華銀"
   },
   "33133": {
@@ -303,6 +391,10 @@
    "stockRef": 10.15,
    "cbRef": 105.0,
    "premiumPct": 62.4138,
+   "vol120": 37.64,
+   "vol240": 42.67,
+   "outPct": 98.57,
+   "industry": "建材營建",
    "guarantor": "元大銀"
   },
   "33246": {
@@ -316,6 +408,10 @@
    "stockRef": 1355.0,
    "cbRef": 139.0,
    "premiumPct": 14.0005,
+   "vol120": 68.5,
+   "vol240": 62.95,
+   "outPct": 99.63,
+   "industry": "電子–其他電子",
    "guarantor": "4"
   },
   "33247": {
@@ -329,6 +425,10 @@
    "stockRef": 1355.0,
    "cbRef": 141.0,
    "premiumPct": 13.6845,
+   "vol120": 68.5,
+   "vol240": 62.95,
+   "outPct": 100.0,
+   "industry": "電子–其他電子",
    "guarantor": "4"
   },
   "33621": {
@@ -342,6 +442,10 @@
    "stockRef": 164.5,
    "cbRef": 111.45,
    "premiumPct": 69.2414,
+   "vol120": 76.85,
+   "vol240": 63.07,
+   "outPct": 99.97,
+   "industry": "電子–光電",
    "guarantor": "土銀"
   },
   "33763": {
@@ -355,6 +459,10 @@
    "stockRef": 174.0,
    "cbRef": 118.0,
    "premiumPct": 29.5966,
+   "vol120": 50.85,
+   "vol240": 51.24,
+   "outPct": 99.21,
+   "industry": "電子–電子零組件",
    "guarantor": "4"
   },
   "33902": {
@@ -368,6 +476,10 @@
    "stockRef": 22.35,
    "cbRef": 118.7,
    "premiumPct": 27.4631,
+   "vol120": 46.8,
+   "vol240": 44.05,
+   "outPct": 100.0,
+   "industry": "電子–電子零組件",
    "guarantor": "中信銀"
   },
   "34163": {
@@ -381,6 +493,10 @@
    "stockRef": 177.5,
    "cbRef": 155.0,
    "premiumPct": 2.6056,
+   "vol120": 43.97,
+   "vol240": 37.72,
+   "outPct": 71.98,
+   "industry": "電子–電腦及週邊設備",
    "guarantor": "5"
   },
   "34793": {
@@ -394,6 +510,10 @@
    "stockRef": 127.5,
    "cbRef": 124.9,
    "premiumPct": 3.1527,
+   "vol120": 48.02,
+   "vol240": 38.83,
+   "outPct": 92.87,
+   "industry": "電子–電腦及週邊設備",
    "guarantor": "5"
   },
   "34913": {
@@ -407,6 +527,10 @@
    "stockRef": 1390.0,
    "cbRef": 126.5,
    "premiumPct": 61.8563,
+   "vol120": 83.12,
+   "vol240": 78.38,
+   "outPct": 100.0,
+   "industry": "電子–通信網路",
    "guarantor": "5"
   },
   "35122": {
@@ -420,6 +544,10 @@
    "stockRef": 19.0,
    "cbRef": 103.45,
    "premiumPct": 11.6171,
+   "vol120": 12.63,
+   "vol240": 18.28,
+   "outPct": 100.0,
+   "industry": "建材營建",
    "guarantor": "一銀"
   },
   "35161": {
@@ -433,6 +561,10 @@
    "stockRef": 24.85,
    "cbRef": 113.0,
    "premiumPct": 16.5014,
+   "vol120": 43.77,
+   "vol240": 35.57,
+   "outPct": 100.0,
+   "industry": "電子–光電",
    "guarantor": "永豐銀"
   },
   "35221": {
@@ -446,6 +578,10 @@
    "stockRef": 11.3,
    "cbRef": 101.1,
    "premiumPct": 62.8336,
+   "vol120": 38.52,
+   "vol240": 36.06,
+   "outPct": 82.06,
+   "industry": "觀光餐旅",
    "guarantor": "兆豐銀"
   },
   "35431": {
@@ -459,6 +595,10 @@
    "stockRef": 47.2,
    "cbRef": 145.0,
    "premiumPct": 23.4958,
+   "vol120": 59.97,
+   "vol240": 62.51,
+   "outPct": 100.0,
+   "industry": "電子–光電",
    "guarantor": "中信銀"
   },
   "35833": {
@@ -472,6 +612,10 @@
    "stockRef": 625.0,
    "cbRef": 120.05,
    "premiumPct": 62.1155,
+   "vol120": 68.38,
+   "vol240": 60.47,
+   "outPct": 100.0,
+   "industry": "電子–半導體",
    "guarantor": "4"
   },
   "35834": {
@@ -485,6 +629,10 @@
    "stockRef": 625.0,
    "cbRef": 119.5,
    "premiumPct": 57.74,
+   "vol120": 68.38,
+   "vol240": 60.47,
+   "outPct": 100.0,
+   "industry": "電子–半導體",
    "guarantor": "4"
   },
   "35872": {
@@ -498,6 +646,10 @@
    "stockRef": 222.5,
    "cbRef": 134.3,
    "premiumPct": 16.9768,
+   "vol120": 64.2,
+   "vol240": 57.51,
+   "outPct": 85.48,
+   "industry": "電子–其他電子",
    "guarantor": "4"
   },
   "41236": {
@@ -511,6 +663,10 @@
    "stockRef": 30.0,
    "cbRef": 106.45,
    "premiumPct": 24.5465,
+   "vol120": 24.27,
+   "vol240": 30.26,
+   "outPct": 90.88,
+   "industry": "生技醫療",
    "guarantor": "永豐銀"
   },
   "41684": {
@@ -524,6 +680,10 @@
    "stockRef": 21.6,
    "cbRef": 106.9,
    "premiumPct": 18.3324,
+   "vol120": 34.93,
+   "vol240": 36.92,
+   "outPct": 100.0,
+   "industry": "生技醫療",
    "guarantor": "土銀"
   },
   "41904": {
@@ -537,6 +697,10 @@
    "stockRef": null,
    "cbRef": 100.95,
    "premiumPct": null,
+   "vol120": 28.31,
+   "vol240": 21.82,
+   "outPct": 100.0,
+   "industry": "生技醫療",
    "guarantor": "土銀"
   },
   "45415": {
@@ -550,6 +714,10 @@
    "stockRef": 58.3,
    "cbRef": 114.0,
    "premiumPct": 34.5317,
+   "vol120": 56.76,
+   "vol240": 51.01,
+   "outPct": 100.0,
+   "industry": "其他",
    "guarantor": "臺銀"
   },
   "45554": {
@@ -563,6 +731,10 @@
    "stockRef": 41.6,
    "cbRef": 113.3,
    "premiumPct": 16.8406,
+   "vol120": 49.23,
+   "vol240": 40.67,
+   "outPct": 100.0,
+   "industry": "電機機械",
    "guarantor": "彰銀"
   },
   "45581": {
@@ -576,6 +748,10 @@
    "stockRef": 17.8,
    "cbRef": 101.0,
    "premiumPct": 69.0899,
+   "vol120": 32.31,
+   "vol240": 35.76,
+   "outPct": 100.0,
+   "industry": "電機機械",
    "guarantor": "華南銀"
   },
   "47148": {
@@ -589,6 +765,10 @@
    "stockRef": 12.15,
    "cbRef": 115.0,
    "premiumPct": 48.6008,
+   "vol120": 42.08,
+   "vol240": 38.18,
+   "outPct": 100.0,
+   "industry": "化學工業",
    "guarantor": "一銀"
   },
   "47394": {
@@ -602,6 +782,10 @@
    "stockRef": 82.1,
    "cbRef": 134.0,
    "premiumPct": 14.0877,
+   "vol120": 62.34,
+   "vol240": 56.93,
+   "outPct": 99.4,
+   "industry": "化學工業",
    "guarantor": "一銀"
   },
   "47642": {
@@ -615,6 +799,10 @@
    "stockRef": 173.5,
    "cbRef": 109.0,
    "premiumPct": 108.011,
+   "vol120": 90.65,
+   "vol240": 92.59,
+   "outPct": 100.0,
+   "industry": "化學工業",
    "guarantor": "土銀"
   },
   "52011": {
@@ -628,6 +816,10 @@
    "stockRef": 27.6,
    "cbRef": 109.0,
    "premiumPct": 49.2826,
+   "vol120": 32.62,
+   "vol240": 35.37,
+   "outPct": 100.0,
+   "industry": "電子–資訊服務",
    "guarantor": "兆豐銀"
   },
   "52892": {
@@ -641,6 +833,10 @@
    "stockRef": 1120.0,
    "cbRef": 106.0,
    "premiumPct": 100.0277,
+   "vol120": 71.71,
+   "vol240": 75.3,
+   "outPct": 100.0,
+   "industry": "電子–電腦及週邊設備",
    "guarantor": "3"
   },
   "54501": {
@@ -654,6 +850,10 @@
    "stockRef": 14.9,
    "cbRef": 106.5,
    "premiumPct": 22.2248,
+   "vol120": 44.77,
+   "vol240": 39.16,
+   "outPct": 99.96,
+   "industry": "其他",
    "guarantor": "土銀"
   },
   "55344": {
@@ -667,6 +867,10 @@
    "stockRef": 70.3,
    "cbRef": 110.0,
    "premiumPct": 17.0413,
+   "vol120": 21.54,
+   "vol240": 21.34,
+   "outPct": 100.0,
+   "industry": "建材營建",
    "guarantor": "5"
   },
   "55362": {
@@ -680,6 +884,10 @@
    "stockRef": 818.0,
    "cbRef": 116.9,
    "premiumPct": 68.3474,
+   "vol120": 65.26,
+   "vol240": 61.41,
+   "outPct": 100.0,
+   "industry": "電子–其他電子",
    "guarantor": "3"
   },
   "55363": {
@@ -693,6 +901,10 @@
    "stockRef": 818.0,
    "cbRef": 119.5,
    "premiumPct": 69.1699,
+   "vol120": 65.26,
+   "vol240": 61.41,
+   "outPct": 100.0,
+   "industry": "電子–其他電子",
    "guarantor": "3"
   },
   "56087": {
@@ -706,6 +918,10 @@
    "stockRef": 16.65,
    "cbRef": 113.95,
    "premiumPct": 32.0862,
+   "vol120": 37.41,
+   "vol240": 37.95,
+   "outPct": 100.0,
+   "industry": "航運業",
    "guarantor": "一銀"
   },
   "61343": {
@@ -719,6 +935,10 @@
    "stockRef": 25.5,
    "cbRef": 115.1,
    "premiumPct": 52.5639,
+   "vol120": 46.8,
+   "vol240": 52.17,
+   "outPct": 100.0,
+   "industry": "電子–電子零組件",
    "guarantor": "中信銀"
   },
   "61876": {
@@ -732,6 +952,10 @@
    "stockRef": 1380.0,
    "cbRef": 139.1,
    "premiumPct": 14.5861,
+   "vol120": 91.6,
+   "vol240": 80.33,
+   "outPct": 100.0,
+   "industry": "電子–半導體",
    "guarantor": "5"
   },
   "622010": {
@@ -745,6 +969,10 @@
    "stockRef": 25.0,
    "cbRef": 109.0,
    "premiumPct": 41.264,
+   "vol120": 44.15,
+   "vol240": 44.03,
+   "outPct": 100.0,
+   "industry": "電子–電子零組件",
    "guarantor": "華南銀"
   },
   "62236": {
@@ -758,6 +986,10 @@
    "stockRef": 5185.0,
    "cbRef": 132.0,
    "premiumPct": 57.8857,
+   "vol120": 77.44,
+   "vol240": 72.17,
+   "outPct": 100.0,
+   "industry": "電子–半導體",
    "guarantor": "4"
   },
   "62843": {
@@ -771,6 +1003,10 @@
    "stockRef": 72.6,
    "cbRef": 101.0,
    "premiumPct": 18.2507,
+   "vol120": 62.01,
+   "vol240": 53.31,
+   "outPct": 100.0,
+   "industry": "電子–電子零組件",
    "guarantor": "4"
   },
   "62854": {
@@ -784,6 +1020,10 @@
    "stockRef": 244.5,
    "cbRef": 112.3,
    "premiumPct": 23.0937,
+   "vol120": 67.79,
+   "vol240": 65.61,
+   "outPct": 100.0,
+   "industry": "電子–通信網路",
    "guarantor": "3"
   },
   "65096": {
@@ -797,6 +1037,10 @@
    "stockRef": 49.4,
    "cbRef": 134.65,
    "premiumPct": -0.2391,
+   "vol120": 37.0,
+   "vol240": 36.64,
+   "outPct": 93.04,
+   "industry": "化學工業",
    "guarantor": "4"
   },
   "65101": {
@@ -810,6 +1054,10 @@
    "stockRef": 3235.0,
    "cbRef": 170.0,
    "premiumPct": 5.5261,
+   "vol120": 74.67,
+   "vol240": 72.94,
+   "outPct": 85.87,
+   "industry": "電子–半導體",
    "guarantor": "4"
   },
   "65152": {
@@ -823,6 +1071,10 @@
    "stockRef": 5050.0,
    "cbRef": 166.0,
    "premiumPct": 15.7267,
+   "vol120": 79.72,
+   "vol240": 76.67,
+   "outPct": 47.44,
+   "industry": "電子–半導體",
    "guarantor": "4"
   },
   "65761": {
@@ -836,6 +1088,10 @@
    "stockRef": 76.4,
    "cbRef": 119.2,
    "premiumPct": 31.5257,
+   "vol120": 19.95,
+   "vol240": 22.79,
+   "outPct": 100.0,
+   "industry": "生技醫療",
    "guarantor": "兆豐銀"
   },
   "66241": {
@@ -849,6 +1105,10 @@
    "stockRef": null,
    "cbRef": 126.0,
    "premiumPct": null,
+   "vol120": 48.74,
+   "vol240": 53.51,
+   "outPct": 7.8,
+   "industry": "綠能環保",
    "guarantor": "土銀"
   },
   "66451": {
@@ -862,6 +1122,10 @@
    "stockRef": 13.8,
    "cbRef": 102.5,
    "premiumPct": 107.0054,
+   "vol120": 48.6,
+   "vol240": 44.79,
+   "outPct": 100.0,
+   "industry": "生技醫療",
    "guarantor": "華南銀"
   },
   "66702": {
@@ -875,6 +1139,10 @@
    "stockRef": 266.5,
    "cbRef": 118.5,
    "premiumPct": 13.1642,
+   "vol120": 29.5,
+   "vol240": 27.63,
+   "outPct": 100.0,
+   "industry": "運動休閒",
    "guarantor": "3"
   },
   "68541": {
@@ -888,6 +1156,10 @@
    "stockRef": 90.4,
    "cbRef": 100.0,
    "premiumPct": 174.6681,
+   "vol120": 51.04,
+   "vol240": 53.32,
+   "outPct": 100.0,
+   "industry": "電子–半導體",
    "guarantor": "中信銀"
   },
   "68692": {
@@ -901,6 +1173,10 @@
    "stockRef": 72.1,
    "cbRef": 115.0,
    "premiumPct": 11.9695,
+   "vol120": 39.22,
+   "vol240": 41.01,
+   "outPct": 100.0,
+   "industry": "綠能環保",
    "guarantor": "永豐銀"
   },
   "80746": {
@@ -914,6 +1190,10 @@
    "stockRef": 61.1,
    "cbRef": 120.0,
    "premiumPct": 51.2275,
+   "vol120": 60.6,
+   "vol240": 66.9,
+   "outPct": 100.0,
+   "industry": "電子–電子零組件",
    "guarantor": "玉山銀/兆豐銀"
   },
   "82102": {
@@ -927,6 +1207,10 @@
    "stockRef": 806.0,
    "cbRef": 122.0,
    "premiumPct": 50.9561,
+   "vol120": 61.62,
+   "vol240": 59.56,
+   "outPct": 100.0,
+   "industry": "電子–電腦及週邊設備",
    "guarantor": "4"
   },
   "82103": {
@@ -940,6 +1224,10 @@
    "stockRef": 806.0,
    "cbRef": 128.4,
    "premiumPct": 55.4182,
+   "vol120": 61.62,
+   "vol240": 59.56,
+   "outPct": 100.0,
+   "industry": "電子–電腦及週邊設備",
    "guarantor": "4"
   },
   "82221": {
@@ -953,6 +1241,10 @@
    "stockRef": 34.4,
    "cbRef": 108.8,
    "premiumPct": 33.786,
+   "vol120": 45.15,
+   "vol240": 40.11,
+   "outPct": 100.0,
+   "industry": "電機機械",
    "guarantor": "永豐銀"
   },
   "82711": {
@@ -966,6 +1258,10 @@
    "stockRef": 180.0,
    "cbRef": 124.65,
    "premiumPct": 11.7695,
+   "vol120": 61.84,
+   "vol240": 72.86,
+   "outPct": 99.99,
+   "industry": "電子–半導體",
    "guarantor": "4"
   },
   "82993": {
@@ -979,6 +1275,10 @@
    "stockRef": 1815.0,
    "cbRef": 119.95,
    "premiumPct": 63.1584,
+   "vol120": 73.68,
+   "vol240": 77.07,
+   "outPct": 100.0,
+   "industry": "電子–半導體",
    "guarantor": "3"
   },
   "84113": {
@@ -992,6 +1292,10 @@
    "stockRef": 11.1,
    "cbRef": 101.3,
    "premiumPct": 20.4649,
+   "vol120": 17.61,
+   "vol240": 16.45,
+   "outPct": 96.99,
+   "industry": "其他",
    "guarantor": "玉山銀"
   },
   "84423": {
@@ -1005,6 +1309,10 @@
    "stockRef": 48.85,
    "cbRef": 123.0,
    "premiumPct": -0.2907,
+   "vol120": 32.93,
+   "vol240": 31.73,
+   "outPct": 100.0,
+   "industry": "其他",
    "guarantor": "國泰世華銀"
   },
   "99392": {
@@ -1018,6 +1326,10 @@
    "stockRef": 126.0,
    "cbRef": 105.0,
    "premiumPct": 28.0833,
+   "vol120": 27.21,
+   "vol240": 24.82,
+   "outPct": 99.99,
+   "industry": "其他",
    "guarantor": "4"
   }
  }

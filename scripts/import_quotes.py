@@ -19,7 +19,8 @@ import_quotes.py — 把券商的 CBAS 選擇權報價單（.xlsx）轉成 data/
     0 可轉債名稱   1 可轉債代碼   2 擔保銀行/TCRI   3 權利金(佰元報價)
     4 選擇權到期日 5 賣回價格(A)  6 賣回日期(B)     7 剩餘年期
     8 折現率(C)    9 權利金參考價 10 現股參考價     11 轉換價格
-    12 CB轉換價值  13 CB參考價    14 溢(折)價%
+    12 CB轉換價值  13 CB參考價    14 溢(折)價%     15 股價波動率120天%
+    16 股價波動率240天%  17 流通餘額占發行總額%  18 原始發行量  19 產業
 
 注意：
   * 債券代號多為 5 碼，但第 10 次以後發行者為 6 碼（例：岳豐十 = 622010），
@@ -87,6 +88,10 @@ def main():
             "stockRef":   as_num(r[10]),
             "cbRef":      as_num(r[13]),
             "premiumPct": round(as_num(r[14]), 4) if as_num(r[14]) is not None else None,
+            "vol120":     as_num(r[15]),      # 股價波動率 120 天 %
+            "vol240":     as_num(r[16]),      # 股價波動率 240 天 %
+            "outPct":     as_num(r[17]),      # 流通餘額占發行總額 %
+            "industry":   str(r[19]).strip() if len(r) > 19 and r[19] else "",
             "guarantor":  str(r[2]).strip() if r[2] else "",
         }
 
