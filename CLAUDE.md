@@ -139,7 +139,12 @@ x=折溢價（左為折價）、y=滾動 12 月年增、點色=籌碼（紅買�
   `--up-ink/--down-ink` 給文字（WCAG ≥5.4:1）。漲跌永遠同時帶 ▲▼ 與正負號，色彩不單獨承載意義。
 - 三態主題（light / dark / system）全以 CSS token 實作；顏色定義不得只出現在
   media query 或 [data-theme] 區塊內。
-- 字體：Noto Serif TC（標題）/ Noto Sans TC（內文）/ IBM Plex Mono（數字，tabular-nums）。
+- 字體以 CSS 變數集中管理，換字型只改 `:root` 的三行即可：
+  `--f-head` Chiron Sung HK（昭源宋體，標題）/ `--f-body` Noto Sans TC（內文）/
+  `--f-mono` Geist Mono（數字，0 有斜線、0O 與 1lI 不混淆，配 tabular-nums）。
+  **改這三個變數時注意不要讓 fallback 參照到變數自己**（曾因正規替換造成
+  `--f-head: "Chiron Sung HK", var(--f-head)` 循環參照，整頁字型失效）。
+- 內文基準 16px。中文在 11px 以下的密集表格會難讀，小字標籤最低用到 11.5px。
 
 ## 更新與部署流程
 
