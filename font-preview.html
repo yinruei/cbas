@@ -1,0 +1,124 @@
+<meta charset="utf-8">
+<title>字型對照</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Noto+Sans+TC:wght@400;500;700&family=Noto+Serif+TC:wght@600;700&family=Chiron+Sung+HK:wght@400;600;700&family=LXGW+WenKai+TC&family=Iansui&family=IBM+Plex+Mono:wght@400;500;600&family=JetBrains+Mono:wght@400;500;600&family=Geist+Mono:wght@400;500;600&family=DM+Mono:wght@400;500&display=swap" rel="stylesheet">
+
+<style>
+  :root {
+    color-scheme: light;
+    --page:#f4f6f8; --surface:#fdfdfe; --surface-2:#eef1f4;
+    --ink:#10151a; --ink-2:#4d5660; --ink-muted:#828b95;
+    --rule:#dfe4e9; --rule-strong:#c3cbd3;
+    --accent:#2a78d6; --accent-deep:#184f95; --accent-soft:#cde2fb;
+    --up:#b32020; --up-ink:#b32020; --down:#3fbf3f; --down-ink:#0a7a0a;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root:not([data-theme="light"]) {
+      color-scheme: dark;
+      --page:#0c0e11; --surface:#16191d; --surface-2:#1f242a;
+      --ink:#f2f4f6; --ink-2:#b2bac3; --ink-muted:#7d868f;
+      --rule:#272c33; --rule-strong:#39404a;
+      --accent:#4b94ea; --accent-deep:#9ec5f4; --accent-soft:#1b3a5f;
+      --up:#ff9494; --up-ink:#ff9494; --down:#2aa52a; --down-ink:#35b835;
+    }
+  }
+  * { box-sizing:border-box; }
+  body { margin:0; background:var(--page); color:var(--ink); padding:28px 20px 70px;
+         font-family:"Noto Sans TC",system-ui,sans-serif; }
+  .wrap { max-width:1000px; margin:0 auto; }
+  h1 { font-size:24px; margin:0 0 6px; }
+  .lede { color:var(--ink-2); font-size:14px; margin:0 0 26px; max-width:62ch; line-height:1.7; }
+
+  .opt { background:var(--surface); border:1px solid var(--rule); border-radius:10px;
+         padding:20px 22px; margin-bottom:20px; }
+  .opt > header { display:flex; flex-wrap:wrap; align-items:baseline; gap:10px 14px;
+                  padding-bottom:14px; border-bottom:1px solid var(--rule); margin-bottom:16px; }
+  .tag { font-size:11px; font-weight:700; letter-spacing:.08em; padding:3px 9px; border-radius:20px;
+         background:var(--accent-soft); color:var(--accent-deep); }
+  .tag.cur { background:var(--surface-2); color:var(--ink-2); }
+  .opt h2 { margin:0; font-size:19px; }
+  .spec { font-size:12px; color:var(--ink-muted); font-family:"IBM Plex Mono",monospace; }
+  .why { font-size:13px; color:var(--ink-2); line-height:1.75; margin:0 0 16px; }
+
+  table { width:100%; border-collapse:collapse; }
+  th { text-align:left; font-size:10px; letter-spacing:.07em; text-transform:uppercase;
+       color:var(--ink-muted); font-weight:600; padding:8px 10px; border-bottom:1px solid var(--rule-strong); white-space:nowrap; }
+  td { padding:10px; border-bottom:1px solid var(--rule); vertical-align:middle; }
+  tr:last-child td { border-bottom:0; }
+  .nm { font-weight:500; font-size:15px; }
+  .sub { font-size:11.5px; color:var(--ink-muted); }
+  .n { text-align:right; font-variant-numeric:tabular-nums; white-space:nowrap; }
+  .up { color:var(--up-ink); font-weight:600; }
+  .dn { color:var(--down-ink); font-weight:600; }
+  .disc { color:var(--accent-deep); font-weight:600; }
+  .chip { display:inline-block; font-size:10px; padding:1px 6px; border-radius:3px;
+          background:var(--accent-soft); color:var(--accent-deep); font-weight:600; margin-right:5px; }
+  .big { font-size:27px; font-weight:600; letter-spacing:-.02em; }
+  .tiles { display:grid; grid-template-columns:repeat(4,1fr); gap:1px; background:var(--rule);
+           border:1px solid var(--rule); border-radius:7px; overflow:hidden; margin-bottom:16px; }
+  .tile { background:var(--surface); padding:12px 14px; }
+  .tile .lab { font-size:10px; letter-spacing:.08em; text-transform:uppercase; color:var(--ink-muted); }
+</style>
+
+<div class="wrap">
+<h1>字型方案對照</h1>
+<p class="lede">同一批真實資料、同樣的版面，只換字型。中文字型在 11–13px 的密集表格裡差異最明顯，請用你平常看盤的距離判斷。深色模式會跟隨系統設定。</p>
+<div id="out"></div>
+</div>
+
+<script>
+const ROWS = [
+  { n:"今國光三", c:"6209 今國光 · 光電業", cb:"256,000", px:"256.00", stk:"110.00", cp:"38.30", cv:"287.21", pr:"−10.87%", ch:"+3,179", up:false },
+  { n:"宏致四",   c:"3605 宏致 · 電子零組件業", cb:"193,000", px:"193.00", stk:"178.00", cp:"86.50", cv:"205.78", pr:"−6.21%", ch:"+1,172", up:true },
+  { n:"鉅祥二",   c:"2476 鉅祥 · 電子零組件業", cb:"177,000", px:"177.00", stk:"121.00", cp:"64.80", cv:"186.73", pr:"−5.21%", ch:"+86", up:true },
+  { n:"可寧衛二", c:"8422 可寧衛 · 環保工程", cb:"142,400", px:"142.40", stk:"26.10", cp:"18.20", cv:"143.41", pr:"−0.70%", ch:"+7,716", up:true },
+  { n:"高端疫苗二", c:"6547 高端疫苗 · 生技醫療", cb:"137,000", px:"137.00", stk:"51.00", cp:"37.00", cv:"137.84", pr:"−0.61%", ch:"+178", up:true },
+];
+
+const OPTS = [
+  { tag:"現行", cur:true, name:"Noto Serif TC ＋ Noto Sans TC ＋ IBM Plex Mono",
+    head:'"Noto Serif TC", Georgia, serif', body:'"Noto Sans TC", system-ui, sans-serif', mono:'"IBM Plex Mono", monospace',
+    why:"思源宋體標題配思源黑體內文，是最安全的組合——字重齊全、小字清楚、兩岸三地都看得慣。缺點是太常見，沒有記憶點；IBM Plex Mono 的 1 和 l 有點窄。" },
+  { tag:"方案 A", name:"Chiron Sung HK ＋ Noto Sans TC ＋ Geist Mono",
+    head:'"Chiron Sung HK", "Noto Serif TC", serif', body:'"Noto Sans TC", system-ui, sans-serif', mono:'"Geist Mono", monospace',
+    why:"標題改用昭源宋體（香港造字，字面較大、筆畫更利落，比思源宋體現代）。數字換 Geist Mono，字腔開、0 有斜線、在小字級辨識度明顯較好——對滿頁數字的表格最有感。" },
+  { tag:"方案 B", name:"Noto Serif TC ＋ Noto Sans TC ＋ JetBrains Mono",
+    head:'"Noto Serif TC", Georgia, serif', body:'"Noto Sans TC", system-ui, sans-serif', mono:'"JetBrains Mono", monospace',
+    why:"中文完全不動，只換數字字型。JetBrains Mono 專為長時間盯螢幕設計，字高較大、易混字元（0O、1lI）做過區分。改動最小、風險最低。" },
+  { tag:"方案 C", name:"LXGW WenKai TC ＋ Noto Sans TC ＋ DM Mono",
+    head:'"LXGW WenKai TC", serif', body:'"Noto Sans TC", system-ui, sans-serif', mono:'"DM Mono", monospace',
+    why:"標題用霞鶩文楷（楷體），手寫感強、氣質獨特。但楷體偏文藝，放在金融儀表板上會有點違和——列出來讓你比較，我不建議用在這個頁面。" },
+];
+
+document.getElementById("out").innerHTML = OPTS.map(o => `
+  <section class="opt" style="font-family:${o.body}">
+    <header>
+      <span class="tag ${o.cur?'cur':''}">${o.tag}</span>
+      <h2 style="font-family:${o.head}">${o.name.split(" ＋ ")[0]}　<span style="font-size:13px;color:var(--ink-muted);font-family:${o.body}">標題</span></h2>
+      <span class="spec">${o.name}</span>
+    </header>
+    <p class="why">${o.why}</p>
+    <div class="tiles">
+      ${[["可轉債","389"],["標的個股","309"],["折價標的","18"],["三者兼具","9"]].map(([l,v])=>
+        `<div class="tile"><div class="lab">${l}</div><div class="big" style="font-family:${o.mono}">${v}</div></div>`).join("")}
+    </div>
+    <table>
+      <thead><tr>
+        <th>債券 / 標的</th><th class="n">CB 市價</th><th class="n">現股</th>
+        <th class="n">轉換價</th><th class="n">轉換價值</th><th class="n">折溢價</th><th class="n">籌碼 5日</th>
+      </tr></thead>
+      <tbody>${ROWS.map(r=>`
+        <tr>
+          <td><div class="nm">${r.n}</div><div class="sub">${r.c}</div></td>
+          <td class="n" style="font-family:${o.mono}">${r.cb}<div class="sub" style="font-family:${o.mono}">元/張 ${r.px}</div></td>
+          <td class="n" style="font-family:${o.mono}">${r.stk}</td>
+          <td class="n" style="font-family:${o.mono}">${r.cp}</td>
+          <td class="n" style="font-family:${o.mono}">${r.cv}</td>
+          <td class="n" style="font-family:${o.mono}"><span class="chip">折價</span><span class="disc">${r.pr}</span></td>
+          <td class="n" style="font-family:${o.mono}"><span class="${r.up?'up':'dn'}">${r.up?'▲':'▼'}${r.ch}</span></td>
+        </tr>`).join("")}
+      </tbody>
+    </table>
+  </section>`).join("");
+</script>
